@@ -12,7 +12,7 @@
   "train": {
     "model": {
       "architecture": "big_resnet",
-      "conditional_strategy": "ProjGAN",
+      "conditional_strategy": "No",
       "pos_collected_numerator": false,
       "hypersphere_dim": "N/A",
       "bottleneck_dim": "N/A",
@@ -28,8 +28,8 @@
       "shared_dim": 128,
       "g_conv_dim": 96,
       "d_conv_dim": 96,
-      "G_depth":"N/A",
-      "D_depth":"N/A",
+      "G_depth": "N/A",
+      "D_depth": "N/A",
       "prior": "gaussian",
       "ema": true,
       "ema_decay": 0.9999,
@@ -73,8 +73,8 @@
       "deep_regret_analysis_for_dis": false,
       "regret_penalty_lambda": "N/A",
 
-      "cr": false,
-      "cr_lambda":"N/A",
+      "cr": true,
+      "cr_lambda": 10.0,
 
       "bcr": false,
       "real_lambda": "N/A",
