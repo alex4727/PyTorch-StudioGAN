@@ -12,7 +12,7 @@
   "train": {
     "model": {
       "architecture": "big_resnet",
-      "conditional_strategy": "ProjGAN",
+      "conditional_strategy": "No",
       "pos_collected_numerator": false,
       "hypersphere_dim": "N/A",
       "bottleneck_dim": "N/A",
