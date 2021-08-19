@@ -13,6 +13,7 @@ from scipy import ndimage
 from sklearn.manifold import TSNE
 from os.path import join
 from PIL import Image
+from torch.optim import optimizer
 from tqdm import tqdm
 from datetime import datetime
 
@@ -935,4 +936,62 @@ class make_worker(object):
 
             generator = change_generator_mode(self.gen_model, self.Gen_copy, self.bn_stat_OnTheFly, standing_statistics, standing_step,
                                               self.prior, self.batch_size, self.z_dim, self.num_classes, self.local_rank, training=True, counter=self.counter)
+    ################################################################################################################################
+
+    ################################################################################################################################
+    def run_linear_probe(self, train_dataloader, eval_dataloader, img_size, d_conv_dim):
+        
+        #Hyper params
+        num_epochs = 100
+        learning_rate = 0.01
+
+        # SoftmaxClassifier
+        class SoftmaxClassifier(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(192,10)
+            def forward(self, x):
+                return self.linear(x)
+
+        # Helper functions to get intermediate layer outputs
+        activations = {}
+        def get_activation(name):
+            def hook(model, input, output):
+                activations[name] = output.detach()
+            return hook
+        self.dis_model.activation.register_forward_hook(get_activation('after_activation'))
+
+
+        #Training Setup
+        classifier = SoftmaxClassifier().to(self.global_rank)
+        classifier_optimizer = torch.optim.SGD(classifier.parameters(), lr=learning_rate)
+        for param in self.dis_model.parameters():
+            param.requires_grad = False
+
+        self.logger.info('Start training linear classifier....')
+        for epoch in range(num_epochs):
+            for images, labels in train_dataloader:
+                images, labels = images.to(self.global_rank), labels.to(self.global_rank)
+                output = self.dis_model(images, labels)
+
+                prediction = classifier(activations['after_activation'].sum(dim=[2,3]))
+                loss = F.cross_entropy(prediction, labels)
+                
+                classifier_optimizer.zero_grad()
+                loss.backward()
+                classifier_optimizer.step()
+            
+            if epoch % 5 == 0:
+                self.logger.info(f'Calculating accuracy....')
+                n_correct = 0
+                with torch.no_grad():
+                    for images, labels in eval_dataloader:
+                        images, labels = images.to(self.global_rank), labels.to(self.global_rank)
+                        output = self.dis_model(images, labels)
+
+                        prediction = classifier(activations['after_activation'].sum(dim=[2,3]))
+                        _, top1 = torch.max(prediction, 1)
+                        n_correct += (top1 == labels).sum().item()
+                self.logger.info(f'Epoch: {epoch}, Accuracy: {100.0 * n_correct / 10000}')
+
     ################################################################################################################################

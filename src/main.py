@@ -64,8 +64,10 @@ def main():
     parser.add_argument('-itp', '--interpolation', action='store_true', help='whether conduct interpolation analysis')
     parser.add_argument('-fa', '--frequency_analysis', action='store_true', help='whether conduct frequency analysis')
     parser.add_argument('-tsne', '--tsne_analysis', action='store_true', help='whether conduct tsne analysis')
+    parser.add_argument('-lp', '--linear_probe', action='store_true', help='whether to conduct linear probing using discriminator layer')
     parser.add_argument('--nrow', type=int, default=10, help='number of rows to plot image canvas')
     parser.add_argument('--ncol', type=int, default=8, help='number of cols to plot image canvas')
+
 
     parser.add_argument('--print_every', type=int, default=100, help='control log interval')
     parser.add_argument('--save_every', type=int, default=2000, help='control evaluation and save interval')
@@ -79,7 +81,8 @@ def main():
             not args.k_nearest_neighbor and \
             not args.interpolation and \
             not args.frequency_analysis and \
-            not args.tsne_analysis:
+            not args.tsne_analysis and \
+            not args.linear_probe:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
