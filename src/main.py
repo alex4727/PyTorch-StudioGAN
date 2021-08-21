@@ -65,6 +65,7 @@ def main():
     parser.add_argument('-fa', '--frequency_analysis', action='store_true', help='whether conduct frequency analysis')
     parser.add_argument('-tsne', '--tsne_analysis', action='store_true', help='whether conduct tsne analysis')
     parser.add_argument('-lp', '--linear_probe', action='store_true', help='whether to conduct linear probing using discriminator layer')
+    parser.add_argument('-lpckpt', '--linear_probe_ckpt', default=None, help='continue training linear classifier from specified ckpt')
     parser.add_argument('--nrow', type=int, default=10, help='number of rows to plot image canvas')
     parser.add_argument('--ncol', type=int, default=8, help='number of cols to plot image canvas')
 

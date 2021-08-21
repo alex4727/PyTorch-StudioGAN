@@ -274,5 +274,5 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
                         standing_statistics=cfgs.standing_statistics, standing_step=cfgs.standing_step)
     
     if cfgs.linear_probe:
-        worker.run_linear_probe(train_dataloader=train_dataloader, eval_dataloader=eval_dataloader, img_size=cfgs.img_size, d_conv_dim=cfgs.d_conv_dim)
+        worker.run_linear_probe(train_dataloader=train_dataloader, eval_dataloader=eval_dataloader, ckpt=cfgs.linear_probe_ckpt)
         

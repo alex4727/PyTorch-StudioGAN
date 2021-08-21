@@ -939,7 +939,7 @@ class make_worker(object):
     ################################################################################################################################
 
     ################################################################################################################################
-    def run_linear_probe(self, train_dataloader, eval_dataloader, img_size, d_conv_dim):
+    def run_linear_probe(self, train_dataloader, eval_dataloader, ckpt):
         
         #Hyper params
         num_epochs = 100
@@ -965,11 +965,20 @@ class make_worker(object):
         #Training Setup
         classifier = SoftmaxClassifier().to(self.global_rank)
         classifier_optimizer = torch.optim.SGD(classifier.parameters(), lr=learning_rate)
+        start_epoch = 0
         for param in self.dis_model.parameters():
             param.requires_grad = False
 
+        if ckpt is not None:
+            checkpoint = torch.load(ckpt)
+            classifier.load_state_dict(checkpoint['model_state_dict'])
+            classifier_optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            start_epoch += checkpoint['epoch']
+
+
         self.logger.info('Start training linear classifier....')
-        for epoch in range(num_epochs):
+        for epoch in range(start_epoch, start_epoch + num_epochs):
+            classifier.train()
             for images, labels in train_dataloader:
                 images, labels = images.to(self.global_rank), labels.to(self.global_rank)
                 output = self.dis_model(images, labels)
@@ -982,6 +991,7 @@ class make_worker(object):
                 classifier_optimizer.step()
             
             if epoch % 5 == 0:
+                classifier.eval()
                 self.logger.info(f'Calculating accuracy....')
                 n_correct = 0
                 with torch.no_grad():
@@ -993,5 +1003,11 @@ class make_worker(object):
                         _, top1 = torch.max(prediction, 1)
                         n_correct += (top1 == labels).sum().item()
                 self.logger.info(f'Epoch: {epoch}, Accuracy: {100.0 * n_correct / 10000}')
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': classifier.state_dict(),
+                    'optimizer_state_dict': classifier_optimizer.state_dict(),
+                    'loss': loss,
+                }, join(self.checkpoint_dir, f"linear_probe_epoch={epoch}_lr={learning_rate}.pth"))
 
     ################################################################################################################################
