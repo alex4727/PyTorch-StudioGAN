@@ -29,6 +29,7 @@ from utils.losses import calc_derv4gp, calc_derv4dra, calc_derv, latent_optimise
 from utils.losses import Conditional_Contrastive_loss, Proxy_NCA_loss, NT_Xent_loss
 from utils.diff_aug import DiffAugment
 from utils.cr_diff_aug import CR_DiffAug
+from utils.simclr_aug import SimCLRAugment
 
 import torch
 import torch.nn as nn
@@ -117,6 +118,7 @@ class make_worker(object):
         self.deep_regret_analysis_for_dis = cfgs.deep_regret_analysis_for_dis
         self.regret_penalty_lambda = cfgs.regret_penalty_lambda
         self.cr = cfgs.cr
+        self.cr_use_simclr_aug = cfgs.cr_use_simclr_aug
         self.cr_lambda = cfgs.cr_lambda
         self.bcr = cfgs.bcr
         self.real_lambda = cfgs.real_lambda
@@ -275,7 +277,10 @@ class make_worker(object):
                             pass
 
                         if self.cr:
-                            real_images_aug = CR_DiffAug(real_images)
+                            if self.cr_use_simclr_aug:
+                                real_images_aug, _ = SimCLRAugment(real_images)
+                            else:
+                                real_images_aug = CR_DiffAug(real_images)
                             if self.conditional_strategy == "ACGAN":
                                 cls_out_real_aug, dis_out_real_aug = self.dis_model(real_images_aug, real_labels)
                                 cls_consistency_loss = self.l2_loss(cls_out_real, cls_out_real_aug)

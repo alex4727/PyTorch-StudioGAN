@@ -74,6 +74,7 @@
       "regret_penalty_lambda": "N/A",
 
       "cr": true,
+      "cr_use_simclr_aug": false,
       "cr_lambda": 10.0,
 
       "bcr": false,
