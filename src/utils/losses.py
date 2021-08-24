@@ -331,4 +331,5 @@ def calc_derv(inputs, labels, netD, conditional_strategy, device, netG=None):
 def byol_loss(x, y):
     x = F.normalize(x, dim=-1, p=2)
     y = F.normalize(y, dim=-1, p=2)
-    return 2 - 2 * (x * y).sum(dim=-1)
+    loss = 2 - 2 * (x * y).sum(dim=-1)
+    return loss.mean()

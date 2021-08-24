@@ -393,10 +393,10 @@ class make_worker(object):
                     for p in self.dis_model.parameters():
                         p.data.clamp_(-self.weight_clipping_bound, self.weight_clipping_bound)
 
-            if step_count % self.print_every == 0 and step_count !=0 and self.global_rank == 0:
-                if self.d_spectral_norm:
-                    dis_sigmas = calculate_all_sn(self.dis_model)
-                    self.writer.add_scalars('SN_of_dis', dis_sigmas, step_count)
+            # if step_count % self.print_every == 0 and step_count !=0 and self.global_rank == 0:
+            #     if self.d_spectral_norm:
+            #         dis_sigmas = calculate_all_sn(self.dis_model)
+            #         self.writer.add_scalars('SN_of_dis', dis_sigmas, step_count)
 
             # ================== TRAIN G ================== #
             toggle_grad(self.dis_model, False, freeze_layers=-1)
@@ -425,7 +425,7 @@ class make_worker(object):
                         if self.conditional_strategy == "ACGAN":
                             cls_out_fake, dis_out_fake = self.dis_model(fake_images, fake_labels)
                         elif self.conditional_strategy == "ProjGAN" or self.conditional_strategy == "no":
-                            dis_out_fake = self.dis_model(fake_images, fake_labels)
+                            _, dis_out_fake = self.dis_model(fake_images, fake_labels)
                         elif self.conditional_strategy in ["NT_Xent_GAN", "Proxy_NCA_GAN", "ContraGAN"]:
                             fake_cls_mask = make_mask(fake_labels, self.num_classes, mask_negatives=self.mask_negatives, device=self.local_rank)
                             cls_proxies_fake, cls_embed_fake, dis_out_fake = self.dis_model(fake_images, fake_labels)
