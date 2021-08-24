@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Image Visualization",
             "type": "python",
@@ -40,6 +41,17 @@
             "env": {"PYTHONPATH":"/root/code/CR-test/PyTorch-StudioGAN/"},
             "args": ["-t", "-e", "-c", "/root/code/CR-test/PyTorch-StudioGAN/src/configs/CIFAR10/unconditional-BigGAN-Mod-CR-SimCLR.json"]
         },
+        {
+            "name": "BYOL-Modified version test",
+            "type": "python",
+            "request": "launch",
+            "program": "/root/code/CR-test/PyTorch-StudioGAN/src/main.py",
+            "console": "integratedTerminal",
+            "env": {"PYTHONPATH":"/root/code/CR-test/PyTorch-StudioGAN/"},
+            "args": ["-t", "-e", "-c", "/root/code/CR-test/PyTorch-StudioGAN/src/configs/CIFAR10/unconditional-BigGAN-Mod-BYOL.json"]
+        },
+
+
     ]
 }
 

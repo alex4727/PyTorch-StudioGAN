@@ -11,7 +11,7 @@
   
     "train": {
       "model": {
-        "architecture": "big_resnet",
+        "architecture": "big_resnet_byol",
         "conditional_strategy": "no",
         "pos_collected_numerator": false,
         "hypersphere_dim": "N/A",
@@ -33,7 +33,10 @@
         "prior": "gaussian",
         "ema": true,
         "ema_decay": 0.9999,
-        "ema_start": 1000
+        "ema_start": 1000,
+        "D_byol": true,
+        "D_byol_ema_decay": 0.996,
+        "D_byol_ema_start": 0
       },  
   
       "optimization": {
@@ -73,9 +76,9 @@
         "deep_regret_analysis_for_dis": false,
         "regret_penalty_lambda": "N/A",
   
-        "cr": true,
+        "cr": false,
         "cr_lambda": 10.0,
-        "use_simclr_aug": true,
+        "use_simclr_aug": false,
 
         "bcr": false,
         "real_lambda": "N/A",

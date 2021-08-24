@@ -25,7 +25,7 @@ from utils.ada import ADAugment
 from utils.biggan_utils import interp
 from utils.sample import sample_latents, sample_1hot, make_mask, target_class_sampler
 from utils.misc import *
-from utils.losses import calc_derv4gp, calc_derv4dra, calc_derv, latent_optimise, set_temperature
+from utils.losses import calc_derv4gp, calc_derv4dra, calc_derv, latent_optimise, set_temperature, byol_loss
 from utils.losses import Conditional_Contrastive_loss, Proxy_NCA_loss, NT_Xent_loss
 from utils.diff_aug import DiffAugment
 from utils.cr_diff_aug import CR_DiffAug
@@ -57,7 +57,7 @@ LOG_FORMAT = (
 
 class make_worker(object):
     def __init__(self, cfgs, train_configs, model_configs, run_name, best_step, logger, writer, n_gpus, gen_model, dis_model,
-                 inception_model, Gen_copy, Gen_ema, train_dataset, eval_dataset, train_dataloader, eval_dataloader, G_optimizer,
+                 inception_model, Gen_copy, Gen_ema, Dis_copy, Dis_predictor, Dis_ema, train_dataset, eval_dataset, train_dataloader, eval_dataloader, G_optimizer,
                  D_optimizer, G_loss, D_loss, prev_ada_p, global_rank, local_rank, bn_stat_OnTheFly, checkpoint_dir, mu, sigma,
                  best_fid, best_fid_checkpoint_path):
 
@@ -79,6 +79,9 @@ class make_worker(object):
         self.inception_model = inception_model
         self.Gen_copy = Gen_copy
         self.Gen_ema = Gen_ema
+        self.Dis_copy = Dis_copy
+        self.Dis_predictor = Dis_predictor
+        self.Dis_ema = Dis_ema
 
         self.train_dataset = train_dataset
         self.eval_dataset = eval_dataset
@@ -118,7 +121,7 @@ class make_worker(object):
         self.deep_regret_analysis_for_dis = cfgs.deep_regret_analysis_for_dis
         self.regret_penalty_lambda = cfgs.regret_penalty_lambda
         self.cr = cfgs.cr
-        self.cr_use_simclr_aug = cfgs.cr_use_simclr_aug
+        self.use_simclr_aug = cfgs.use_simclr_aug
         self.cr_lambda = cfgs.cr_lambda
         self.bcr = cfgs.bcr
         self.real_lambda = cfgs.real_lambda
@@ -204,6 +207,10 @@ class make_worker(object):
         self.gen_model.train()
         if self.Gen_copy is not None:
             self.Gen_copy.train()
+        if self.Dis_copy is not None:
+            self.Dis_copy.train()
+        if self.Dis_predictor is not None:
+            self.Dis_predictor.train()
 
         if self.global_rank == 0: self.logger.info('Start training....')
         step_count = current_step
@@ -252,15 +259,31 @@ class make_worker(object):
                             cls_out_real, dis_out_real = self.dis_model(real_images, real_labels)
                             cls_out_fake, dis_out_fake = self.dis_model(fake_images, fake_labels)
                         elif self.conditional_strategy == "ProjGAN" or self.conditional_strategy == "no":
-                            dis_out_real = self.dis_model(real_images, real_labels)
-                            dis_out_fake = self.dis_model(fake_images, fake_labels)
+                            if self.cfgs.D_byol:
+                                _, dis_out_fake = self.dis_model(fake_images, fake_labels)
+                                if self.use_simclr_aug == False:
+                                    real_images_aug = CR_DiffAug(real_images)
+                                else:
+                                    real_images_aug = SimCLRAugment(real_images)
+                                online_projection_one, dis_out_real = self.dis_model(real_images, real_labels)
+                                online_projection_two, _ = self.dis_model(real_images_aug, real_labels)
+                                online_prediction_one, online_prediction_two = self.Dis_predictor(online_projection_one), self.Dis_predictor(online_projection_two)
+
+                                with torch.no_grad():
+                                    target_projection_one, _ = self.Dis_copy(real_images, real_labels)
+                                    target_projection_two, _ = self.Dis_copy(real_images_aug, real_labels)
+                                    target_projection_one.detach_()
+                                    target_projection_two.detach_()
+                            else:
+                                dis_out_real = self.dis_model(real_images, real_labels)
+                                dis_out_fake = self.dis_model(fake_images, fake_labels)
                         elif self.conditional_strategy in ["NT_Xent_GAN", "Proxy_NCA_GAN", "ContraGAN"]:
                             cls_proxies_real, cls_embed_real, dis_out_real = self.dis_model(real_images, real_labels)
                             cls_proxies_fake, cls_embed_fake, dis_out_fake = self.dis_model(fake_images, fake_labels)
                         else:
                             raise NotImplementedError
-
-                        dis_acml_loss = self.D_loss(dis_out_real, dis_out_fake)
+                        
+                        dis_acml_loss = self.D_loss(dis_out_real, dis_out_fake) + byol_loss(online_prediction_one, target_projection_one.detach()) + byol_loss(online_prediction_two, target_projection_two.detach())
                         if self.conditional_strategy == "ACGAN":
                             dis_acml_loss += (self.ce_loss(cls_out_real, real_labels) + self.ce_loss(cls_out_fake, fake_labels))
                         elif self.conditional_strategy == "NT_Xent_GAN":
@@ -277,7 +300,7 @@ class make_worker(object):
                             pass
 
                         if self.cr:
-                            if self.cr_use_simclr_aug:
+                            if self.use_simclr_aug:
                                 real_images_aug, _ = SimCLRAugment(real_images)
                             else:
                                 real_images_aug = CR_DiffAug(real_images)
@@ -362,6 +385,9 @@ class make_worker(object):
                     self.scaler.update()
                 else:
                     self.D_optimizer.step()
+                if self.cfgs.D_byol:
+                    self.Dis_ema.update(step_count)
+                    
 
                 if self.weight_clipping_for_dis:
                     for p in self.dis_model.parameters():
@@ -489,15 +515,28 @@ class make_worker(object):
         self.gen_model.eval()
         if self.Gen_copy is not None:
             self.Gen_copy.eval()
+        if self.Dis_copy is not None:
+            self.Dis_copy.eval()
+        if self.Dis_predictor is not None:
+            self.Dis_predictor.eval()
 
         if isinstance(self.gen_model, DataParallel) or isinstance(self.gen_model, DistributedDataParallel):
             gen, dis = self.gen_model.module, self.dis_model.module
             if self.Gen_copy is not None:
                 gen_copy = self.Gen_copy.module
+            if self.Dis_copy is not None:
+                dis_copy = self.Dis_copy.module
+            if self.Dis_predictor is not None:
+                dis_predictor = self.Dis_predictor.module
+
         else:
             gen, dis = self.gen_model, self.dis_model
             if self.Gen_copy is not None:
                 gen_copy = self.Gen_copy
+            if self.Dis_copy is not None:
+                dis_copy = self.Dis_copy
+            if self.Dis_predictor is not None:
+                dis_predictor = self.Dis_predictor
 
         g_states = {'seed': self.seed, 'run_name': self.run_name, 'step': step, 'best_step': self.best_step,
                     'state_dict': gen.state_dict(), 'optimizer': self.G_optimizer.state_dict(), 'ada_p': self.ada_aug_p}
@@ -527,6 +566,7 @@ class make_worker(object):
             torch.save(g_states, g_checkpoint_output_path_)
             torch.save(d_states, d_checkpoint_output_path_)
 
+
         if self.Gen_copy is not None:
             g_ema_states = {'state_dict': gen_copy.state_dict()}
             if len(glob.glob(join(self.checkpoint_dir, "model=G_ema-{when}-weights-step*.pth".format(when=when)))) >= 1:
@@ -537,12 +577,42 @@ class make_worker(object):
             torch.save(g_ema_states, g_ema_checkpoint_output_path)
 
             if when == "best":
-                if len(glob.glob(join(self.checkpoint_dir,"model=G_ema-current-weights-step*.pth".format(when=when)))) >= 1:
+                if len(glob.glob(join(self.checkpoint_dir, "model=G_ema-current-weights-step*.pth".format(when=when)))) >= 1:
                     find_and_remove(glob.glob(join(self.checkpoint_dir,"model=G_ema-current-weights-step*.pth".format(when=when)))[0])
 
                 g_ema_checkpoint_output_path_ = join(self.checkpoint_dir, "model=G_ema-current-weights-step={step}.pth".format(when=when, step=str(step)))
 
                 torch.save(g_ema_states, g_ema_checkpoint_output_path_)
+
+        if self.Dis_copy is not None:
+            d_ema_states = {'state_dict': dis_copy.state_dict()}
+            if len(glob.glob(join(self.checkpoint_dir, "model=D_ema-{when}-weights-step*.pth".format(when=when)))) >= 1:
+                find_and_remove(glob.glob(join(self.checkpoint_dir, "model=D_ema-{when}-weights-step*.pth".format(when=when)))[0])
+
+            d_ema_checkpoint_output_path = join(self.checkpoint_dir, "model=D_ema-{when}-weights-step={step}.pth".format(when=when, step=str(step)))
+            torch.save(d_ema_states, d_ema_checkpoint_output_path)
+
+            if when == "best":
+                if len(glob.glob(join(self.checkpoint_dir, "model=D_ema-current-weights-step*.pth".format(when=when)))) >= 1:
+                    find_and_remove(glob.glob(join(self.checkpoint_dir, "model=D_ema-current-weights-step*.pth".format(when=when)))[0])
+                
+                d_ema_checkpoint_output_path_ = join(self.checkpoint_dir, "model=D_ema-current-weights-step={step}.pth".format(when=when, step=str(step)))
+                torch.save(d_ema_states, d_ema_checkpoint_output_path_)
+                
+        if self.Dis_predictor is not None:
+            d_predictor_states = {'state_dict': dis_predictor.state_dict()}
+            if len(glob.glob(join(self.checkpoint_dir, "model=D_predictor-{when}-weights-step*.pth".format(when=when)))) >= 1:
+                find_and_remove(glob.glob(join(self.checkpoint_dir, "model=D_predictor-{when}-weights-step*.pth".format(when=when)))[0])
+
+            d_predictor_checkpoint_output_path = join(self.checkpoint_dir, "model=D_predictor-{when}-weights-step={step}.pth".format(when=when, step=str(step)))
+            torch.save(d_predictor_states, d_predictor_checkpoint_output_path)
+
+            if when == "best":
+                if len(glob.glob(join(self.checkpoint_dir, "model=D_predictor-weights-step*.pth".format(when=when)))) >= 1:
+                    find_and_remove(glob.glob(join(self.checkpoint_dir, "model=D_predictor-current-weights-step*.pth".format(when=when)))[0])
+                
+                d_predictor_checkpoint_output_path_ = join(self.checkpoint_dir, "model=D_predictor-current-weights-step={step}.pth".format(when=when, step=str(step)))
+                torch.save(d_predictor_states, d_predictor_checkpoint_output_path_)
 
         if self.logger:
             if self.global_rank == 0: self.logger.info("Save model to {}".format(self.checkpoint_dir))
