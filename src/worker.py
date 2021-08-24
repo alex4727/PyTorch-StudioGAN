@@ -608,7 +608,7 @@ class make_worker(object):
             torch.save(d_predictor_states, d_predictor_checkpoint_output_path)
 
             if when == "best":
-                if len(glob.glob(join(self.checkpoint_dir, "model=D_predictor-weights-step*.pth".format(when=when)))) >= 1:
+                if len(glob.glob(join(self.checkpoint_dir, "model=D_predictor-current-weights-step*.pth".format(when=when)))) >= 1:
                     find_and_remove(glob.glob(join(self.checkpoint_dir, "model=D_predictor-current-weights-step*.pth".format(when=when)))[0])
                 
                 d_predictor_checkpoint_output_path_ = join(self.checkpoint_dir, "model=D_predictor-current-weights-step={step}.pth".format(when=when, step=str(step)))
