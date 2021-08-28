@@ -255,12 +255,12 @@ class make_worker(object):
                             cls_out_real, dis_out_real = self.dis_model(real_images, real_labels)
                             cls_out_fake, dis_out_fake = self.dis_model(fake_images, fake_labels)
 
-                        elif cfgs.use_only_cr_aug == true:
+                        elif self.cfgs.use_only_cr_aug == True:
                             real_images_aug = CR_DiffAug(real_images)
                             dis_out_real = self.dis_model(real_images, real_labels)
                             dis_out_real2 = self.dis_model(real_images_aug, real_labels)
                             dis_out_fake = self.dis_model(fake_images, fake_labels)
-                            dis_out_fake2 = self.dis_model(fake_images2, fake_labels)
+                            dis_out_fake2 = self.dis_model(fake_images2, fake_labels2)
 
                         elif self.conditional_strategy == "ProjGAN" or self.conditional_strategy == "no":
                             dis_out_real = self.dis_model(real_images, real_labels)

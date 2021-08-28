@@ -20,7 +20,7 @@
             "program": "/root/code/CR-test/PyTorch-StudioGAN/src/main.py",
             "console": "integratedTerminal",
             "env": {"PYTHONPATH":"/root/code/CR-test/PyTorch-StudioGAN/"},
-            "args": ["-t", "-e", "-c", "/root/code/CR-test/PyTorch-StudioGAN/src/configs/CIFAR10/unconditional-BigGAN-Mod-use_only_cr_aug"]
+            "args": ["-t", "-e", "-c", "/root/code/CR-test/PyTorch-StudioGAN/src/configs/CIFAR10/unconditional-BigGAN-Mod-use_only_cr_aug.json"]
         },
         {
             "name": "Linear Probing Test",
