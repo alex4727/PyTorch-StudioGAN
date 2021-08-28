@@ -237,12 +237,15 @@ class make_worker(object):
                         else:
                             zs, fake_labels = sample_latents(self.prior, self.batch_size, self.z_dim, -1.0, self.num_classes,
                                                              None, self.local_rank)
+                            zs2, fake_labels2 = sample_latents(self.prior, self.batch_size, self.z_dim, -1.0, self.num_classes,
+                                                             None, self.local_rank)                                
                         if self.latent_op:
                             zs = latent_optimise(zs, fake_labels, self.gen_model, self.dis_model, self.conditional_strategy,
                                                  self.latent_op_step, self.latent_op_rate, self.latent_op_alpha, self.latent_op_beta,
                                                  False, self.local_rank)
 
                         fake_images = self.gen_model(zs, fake_labels)
+                        fake_images2 = self.gen_model(zs2, fake_labels2)
                         if self.diff_aug:
                             fake_images = DiffAugment(fake_images, policy=self.policy)
                         if self.ada:
@@ -251,6 +254,14 @@ class make_worker(object):
                         if self.conditional_strategy == "ACGAN":
                             cls_out_real, dis_out_real = self.dis_model(real_images, real_labels)
                             cls_out_fake, dis_out_fake = self.dis_model(fake_images, fake_labels)
+
+                        elif cfgs.use_only_cr_aug == true:
+                            real_images_aug = CR_DiffAug(real_images)
+                            dis_out_real = self.dis_model(real_images, real_labels)
+                            dis_out_real2 = self.dis_model(real_images_aug, real_labels)
+                            dis_out_fake = self.dis_model(fake_images, fake_labels)
+                            dis_out_fake2 = self.dis_model(fake_images2, fake_labels)
+
                         elif self.conditional_strategy == "ProjGAN" or self.conditional_strategy == "no":
                             dis_out_real = self.dis_model(real_images, real_labels)
                             dis_out_fake = self.dis_model(fake_images, fake_labels)
@@ -260,7 +271,7 @@ class make_worker(object):
                         else:
                             raise NotImplementedError
 
-                        dis_acml_loss = self.D_loss(dis_out_real, dis_out_fake)
+                        dis_acml_loss = self.D_loss(dis_out_real, dis_out_fake) + self.D_loss(dis_out_real2, dis_out_fake2)
                         if self.conditional_strategy == "ACGAN":
                             dis_acml_loss += (self.ce_loss(cls_out_real, real_labels) + self.ce_loss(cls_out_fake, fake_labels))
                         elif self.conditional_strategy == "NT_Xent_GAN":
