@@ -1017,7 +1017,7 @@ class make_worker(object):
     def run_linear_probe(self, train_dataloader, eval_dataloader, ckpt):
         
         #Hyper params
-        num_epochs = 100
+        num_epochs = 200
         learning_rate = 0.01
 
         # SoftmaxClassifier
