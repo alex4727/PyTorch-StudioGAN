@@ -23,8 +23,6 @@ from utils.misc import *
 from utils.biggan_utils import ema, ema_DP_SyncBN
 from sync_batchnorm.batchnorm import convert_model
 from worker import make_worker
-from models.byol_mlp import MLP
-
 
 import torch
 from torch.utils.data import DataLoader
@@ -90,7 +88,7 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
 
     Dis = module.Discriminator(cfgs.img_size, cfgs.d_conv_dim, cfgs.d_spectral_norm, cfgs.attention, cfgs.attention_after_nth_dis_block,
                                cfgs.activation_fn, cfgs.conditional_strategy, cfgs.hypersphere_dim, cfgs.num_classes, cfgs.nonlinear_embed,
-                               cfgs.normalize_embed, cfgs.d_init, cfgs.D_depth, cfgs.mixed_precision, cfgs.D_byol).to(local_rank)
+                               cfgs.normalize_embed, cfgs.d_init, cfgs.D_depth, cfgs.mixed_precision).to(local_rank)
 
     if cfgs.ema:
         if local_rank == 0: logger.info('Prepare EMA for G with decay of {}.'.format(cfgs.ema_decay))
@@ -104,21 +102,6 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
     else:
         Gen_copy, Gen_ema = None, None
 
-
-    if cfgs.D_byol:
-        if local_rank == 0: logger.info('Prepare EMA for D with decay of {}.'.format(cfgs.D_byol_ema_decay))
-        Dis_copy = module.Discriminator(cfgs.img_size, cfgs.d_conv_dim, cfgs.d_spectral_norm, cfgs.attention, cfgs.attention_after_nth_dis_block,
-                                   cfgs.activation_fn, cfgs.conditional_strategy, cfgs.hypersphere_dim, cfgs.num_classes, cfgs.nonlinear_embed,
-                                   cfgs.normalize_embed, cfgs.d_init, cfgs.D_depth, cfgs.mixed_precision, cfgs.D_byol).to(local_rank)
-        if not cfgs.distributed_data_parallel and world_size > 1 and cfgs.synchronized_bn:
-            Dis_ema = ema_DP_SyncBN(Dis, Dis_copy, cfgs.D_byol_ema_decay, cfgs.D_byol_ema_start)
-        else:
-            Dis_ema = ema(Dis, Dis_copy, cfgs.D_byol_ema_decay, cfgs.D_byol_ema_start)
-        #Predictor sizes are subject to change... depending on the dataset
-        Dis_predictor = MLP(128, 128, 768).to(local_rank)
-    else:
-        Dis_copy, Dis_ema, Dis_predictor = None, None, None
-
     if local_rank == 0: logger.info(count_parameters(Gen))
     if local_rank == 0: logger.info(Gen)
 
@@ -130,26 +113,20 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
     G_loss = {'vanilla': loss_dcgan_gen, 'least_square': loss_lsgan_gen, 'hinge': loss_hinge_gen, 'wasserstein': loss_wgan_gen}
     D_loss = {'vanilla': loss_dcgan_dis, 'least_square': loss_lsgan_dis, 'hinge': loss_hinge_dis, 'wasserstein': loss_wgan_dis}
 
-
-    if cfgs.D_byol: 
-        D_params = list(Dis.parameters()) + list(Dis_predictor.parameters())
-    else:
-        D_params = Dis.parameters()
-
     if cfgs.optimizer == "SGD":
         G_optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, Gen.parameters()), cfgs.g_lr,
                                       weight_decay=cfgs.g_weight_decay, momentum=cfgs.momentum, nesterov=cfgs.nesterov)
-        D_optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, D_params), cfgs.d_lr,
+        D_optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, Dis.parameters()), cfgs.d_lr,
                                       weight_decay=cfgs.d_weight_decay, momentum=cfgs.momentum, nesterov=cfgs.nesterov)
     elif cfgs.optimizer == "RMSprop":
         G_optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, Gen.parameters()), cfgs.g_lr,
                                           weight_decay=cfgs.g_weight_decay, momentum=cfgs.momentum, alpha=cfgs.alpha)
-        D_optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, D_params), cfgs.d_lr,
+        D_optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, Dis.parameters()), cfgs.d_lr,
                                           weight_decay=cfgs.d_weight_decay, momentum=cfgs.momentum, alpha=cfgs.alpha)
     elif cfgs.optimizer == "Adam":
         G_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, Gen.parameters()), cfgs.g_lr, [cfgs.beta1, cfgs.beta2],
                                        weight_decay=cfgs.g_weight_decay, eps=1e-6)
-        D_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, D_params), cfgs.d_lr, [cfgs.beta1, cfgs.beta2],
+        D_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, Dis.parameters()), cfgs.d_lr, [cfgs.beta1, cfgs.beta2],
                                        weight_decay=cfgs.d_weight_decay, eps=1e-6)
     else:
         raise NotImplementedError
@@ -176,11 +153,6 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
             g_ema_checkpoint_dir = glob.glob(join(checkpoint_dir, "model=G_ema-{when}-weights-step*.pth".format(when=when)))[0]
             Gen_copy = load_checkpoint(Gen_copy, None, g_ema_checkpoint_dir, ema=True)
             Gen_ema.source, Gen_ema.target = Gen, Gen_copy
-        if cfgs.D_byol:
-            d_ema_checkpoint_dir = glob.glob(join(checkpoint_dir, "model=D_ema-{when}-weights-step*.pth".format(when=when)))[0]
-            d_predictor_checkpoint_dir = glob.glob(join(checkpoint_dir, "model=D_predictor-{when}-weights-step*.pth".format(when=when)))[0]
-            Dis_copy = load_checkpoint(Dis_copy, None, d_ema_checkpoint_dir, ema=True)
-            Dis_predictor = load_checkpoint(Dis_predictor, None, d_predictor_checkpoint_dir, ema=False)
 
         writer = SummaryWriter(log_dir=join('./logs', run_name)) if global_rank == 0 else None
         if cfgs.train_configs['train'] and cfgs.seed != trained_seed:
@@ -202,30 +174,22 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
                 Dis = torch.nn.SyncBatchNorm.convert_sync_batchnorm(Dis, process_group)
                 if cfgs.ema:
                     Gen_copy = torch.nn.SyncBatchNorm.convert_sync_batchnorm(Gen_copy, process_group)
-                if cfgs.D_byol:
-                    Dis_copy = torch.nn.SyncBatchNorm.convert_sync_batchnorm(Dis_copy, process_group)
 
             Gen = DDP(Gen, device_ids=[local_rank])
             Dis = DDP(Dis, device_ids=[local_rank])
             if cfgs.ema:
                 Gen_copy = DDP(Gen_copy, device_ids=[local_rank])
-            if cfgs.D_byol:
-                Dis_copy = DDP(Dis_copy, device_ids=[local_rank])
         else:
             Gen = DataParallel(Gen, output_device=local_rank)
             Dis = DataParallel(Dis, output_device=local_rank)
             if cfgs.ema:
                 Gen_copy = DataParallel(Gen_copy, output_device=local_rank)
-            if cfgs.D_byol:
-                Dis_copy = DataParallel(Dis_copy, output_device=local_rank)
 
             if cfgs.synchronized_bn:
                 Gen = convert_model(Gen).to(local_rank)
                 Dis = convert_model(Dis).to(local_rank)
                 if cfgs.ema:
                     Gen_copy = convert_model(Gen_copy).to(local_rank)
-                if cfgs.D_byol:
-                    Dis_copy = convert_model(Dis_copy).to(local_rank)
 
     ##### load the inception network and prepare first/secend moments for calculating FID #####
     if cfgs.eval:
@@ -261,9 +225,6 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
         inception_model=inception_model,
         Gen_copy=Gen_copy,
         Gen_ema=Gen_ema,
-        Dis_copy=Dis_copy,
-        Dis_predictor=Dis_predictor,
-        Dis_ema=Dis_ema,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         train_dataloader=train_dataloader,
@@ -314,4 +275,3 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
     
     if cfgs.linear_probe:
         worker.run_linear_probe(train_dataloader=train_dataloader, eval_dataloader=eval_dataloader, ckpt=cfgs.linear_probe_ckpt)
-        
