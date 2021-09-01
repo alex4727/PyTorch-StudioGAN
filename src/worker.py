@@ -1004,11 +1004,11 @@ class make_worker(object):
                         _, top1 = torch.max(prediction, 1)
                         n_correct += (top1 == labels).sum().item()
                 self.logger.info(f'Epoch: {epoch}, Accuracy: {100.0 * n_correct / 10000}')
-                # torch.save({
-                #     'epoch': epoch,
-                #     'model_state_dict': classifier.state_dict(),
-                #     'optimizer_state_dict': classifier_optimizer.state_dict(),
-                #     'loss': loss,
-                # }, join(self.checkpoint_dir, f"linear_probe_epoch={epoch}_lr={learning_rate}.pth"))
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': classifier.state_dict(),
+                    'optimizer_state_dict': classifier_optimizer.state_dict(),
+                    'loss': loss,
+                }, join(self.checkpoint_dir, f"linear_probe_epoch={epoch}_lr={learning_rate}.pth"))
 
     ################################################################################################################################
