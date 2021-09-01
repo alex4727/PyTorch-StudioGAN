@@ -118,7 +118,6 @@ class make_worker(object):
         self.deep_regret_analysis_for_dis = cfgs.deep_regret_analysis_for_dis
         self.regret_penalty_lambda = cfgs.regret_penalty_lambda
         self.cr = cfgs.cr
-        self.cr_use_simclr_aug = cfgs.cr_use_simclr_aug
         self.cr_lambda = cfgs.cr_lambda
         self.bcr = cfgs.bcr
         self.real_lambda = cfgs.real_lambda
@@ -277,10 +276,7 @@ class make_worker(object):
                             pass
 
                         if self.cr:
-                            if self.cr_use_simclr_aug:
-                                real_images_aug, _ = SimCLRAugment(real_images)
-                            else:
-                                real_images_aug = CR_DiffAug(real_images)
+                            real_images_aug = CR_DiffAug(real_images)
                             if self.conditional_strategy == "ACGAN":
                                 cls_out_real_aug, dis_out_real_aug = self.dis_model(real_images_aug, real_labels)
                                 cls_consistency_loss = self.l2_loss(cls_out_real, cls_out_real_aug)
@@ -995,7 +991,7 @@ class make_worker(object):
                 loss.backward()
                 classifier_optimizer.step()
             
-            if epoch % 5 == 0:
+            if epoch % 5 == 0  or epoch == (start_epoch + num_epochs):
                 classifier.eval()
                 self.logger.info(f'Calculating accuracy....')
                 n_correct = 0
@@ -1008,11 +1004,11 @@ class make_worker(object):
                         _, top1 = torch.max(prediction, 1)
                         n_correct += (top1 == labels).sum().item()
                 self.logger.info(f'Epoch: {epoch}, Accuracy: {100.0 * n_correct / 10000}')
-                torch.save({
-                    'epoch': epoch,
-                    'model_state_dict': classifier.state_dict(),
-                    'optimizer_state_dict': classifier_optimizer.state_dict(),
-                    'loss': loss,
-                }, join(self.checkpoint_dir, f"linear_probe_epoch={epoch}_lr={learning_rate}.pth"))
+                # torch.save({
+                #     'epoch': epoch,
+                #     'model_state_dict': classifier.state_dict(),
+                #     'optimizer_state_dict': classifier_optimizer.state_dict(),
+                #     'loss': loss,
+                # }, join(self.checkpoint_dir, f"linear_probe_epoch={epoch}_lr={learning_rate}.pth"))
 
     ################################################################################################################################

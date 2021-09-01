@@ -30,7 +30,7 @@
             "program": "/root/code/CR-test/PyTorch-StudioGAN/src/main.py",
             "console": "integratedTerminal",
             "env": {"PYTHONPATH":"/root/code/CR-test/PyTorch-StudioGAN/"},
-            "args": ["-lp", "-lpckpt", "/root/code/CR-test/PyTorch-StudioGAN/checkpoints/unconditional-BigGAN-Mod-CR-train-2021_08_18_11_17_34/linear_probe_epoch=5_lr=0.01.pth", "-c", "/root/code/CR-test/PyTorch-StudioGAN/src/configs/CIFAR10/BigGAN-Mod-CR.json", "--checkpoint_folder", "/root/code/CR-test/PyTorch-StudioGAN/checkpoints/unconditional-BigGAN-Mod-CR-train-2021_08_18_11_17_34/"]
+            "args": ["-lp","-c", "src/configs/CIFAR10/unconditional-BigGAN-Mod-BYOL.json", "--checkpoint_folder", "checkpoints/unconditional-BigGAN-Mod-BYOL-train-2021_08_24_14_56_42/"]
         },
         {
             "name": "SimCLR Augmentations Test",

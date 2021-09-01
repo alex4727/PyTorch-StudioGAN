@@ -23,6 +23,7 @@ from utils.misc import *
 from utils.biggan_utils import ema, ema_DP_SyncBN
 from sync_batchnorm.batchnorm import convert_model
 from worker import make_worker
+from models.byol_mlp import MLP
 
 import torch
 from torch.utils.data import DataLoader
@@ -108,6 +109,12 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
     if local_rank == 0: logger.info(count_parameters(Dis))
     if local_rank == 0: logger.info(Dis)
 
+    if hasattr(cfgs, 'D_byol') and cfgs.D_byol == True: 
+        Dis_predictor = MLP(128, 128, 768).to(local_rank)
+        D_params = list(Dis.parameters()) + list(Dis_predictor.parameters())
+    else:
+        D_params = Dis.parameters()
+
 
     ### define loss functions and optimizers
     G_loss = {'vanilla': loss_dcgan_gen, 'least_square': loss_lsgan_gen, 'hinge': loss_hinge_gen, 'wasserstein': loss_wgan_gen}
@@ -116,17 +123,17 @@ def prepare_train_eval(local_rank, gpus_per_node, world_size, run_name, train_co
     if cfgs.optimizer == "SGD":
         G_optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, Gen.parameters()), cfgs.g_lr,
                                       weight_decay=cfgs.g_weight_decay, momentum=cfgs.momentum, nesterov=cfgs.nesterov)
-        D_optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, Dis.parameters()), cfgs.d_lr,
+        D_optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, D_params), cfgs.d_lr,
                                       weight_decay=cfgs.d_weight_decay, momentum=cfgs.momentum, nesterov=cfgs.nesterov)
     elif cfgs.optimizer == "RMSprop":
         G_optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, Gen.parameters()), cfgs.g_lr,
                                           weight_decay=cfgs.g_weight_decay, momentum=cfgs.momentum, alpha=cfgs.alpha)
-        D_optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, Dis.parameters()), cfgs.d_lr,
+        D_optimizer = torch.optim.RMSprop(filter(lambda p: p.requires_grad, D_params), cfgs.d_lr,
                                           weight_decay=cfgs.d_weight_decay, momentum=cfgs.momentum, alpha=cfgs.alpha)
     elif cfgs.optimizer == "Adam":
         G_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, Gen.parameters()), cfgs.g_lr, [cfgs.beta1, cfgs.beta2],
                                        weight_decay=cfgs.g_weight_decay, eps=1e-6)
-        D_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, Dis.parameters()), cfgs.d_lr, [cfgs.beta1, cfgs.beta2],
+        D_optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, D_params), cfgs.d_lr, [cfgs.beta1, cfgs.beta2],
                                        weight_decay=cfgs.d_weight_decay, eps=1e-6)
     else:
         raise NotImplementedError
