@@ -991,7 +991,7 @@ class make_worker(object):
                 loss.backward()
                 classifier_optimizer.step()
             
-            if epoch % 5 == 0  or epoch == (start_epoch + num_epochs):
+            if (epoch+1) % 5 == 0:
                 classifier.eval()
                 self.logger.info(f'Calculating accuracy....')
                 n_correct = 0
@@ -1003,12 +1003,12 @@ class make_worker(object):
                         prediction = classifier(activations['after_activation'].sum(dim=[2,3]))
                         _, top1 = torch.max(prediction, 1)
                         n_correct += (top1 == labels).sum().item()
-                self.logger.info(f'Epoch: {epoch}, Accuracy: {100.0 * n_correct / 10000}')
+                self.logger.info(f'Epoch: {epoch+1}, Accuracy: {100.0 * n_correct / 10000}')
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': classifier.state_dict(),
                     'optimizer_state_dict': classifier_optimizer.state_dict(),
                     'loss': loss,
-                }, join(self.checkpoint_dir, f"linear_probe_epoch={epoch}_lr={learning_rate}.pth"))
+                }, join(self.checkpoint_dir, f"linear_probe_epoch={epoch+1}_lr={learning_rate}.pth"))
 
     ################################################################################################################################
