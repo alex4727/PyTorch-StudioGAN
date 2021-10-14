@@ -98,41 +98,18 @@ def generate_images(z_prior, truncation_factor, batch_size, z_dim, num_classes, 
             else:
                 assert 0 <= truncation_factor, "truncation_factor must lie btw 0(no truncation) ~ inf(strong truncation)"
 
-    zs, fake_labels, zs_eps = sample_zy(z_prior=z_prior,
-                                        batch_size=batch_size,
-                                        z_dim=z_dim,
-                                        num_classes=num_classes,
-                                        truncation_factor=-1 if is_stylegan else truncation_factor,
-                                        y_sampler=y_sampler,
-                                        radius=radius,
-                                        device=device)
-    trsp_cost = None
-    if LOSS.apply_lo:
-        zs, trsp_cost = losses.latent_optimise(zs=zs,
-                                               fake_labels=fake_labels,
-                                               generator=generator,
-                                               discriminator=discriminator,
-                                               batch_size=batch_size,
-                                               lo_rate=LOSS.lo_rate,
-                                               lo_steps=lo_steps,
-                                               lo_alpha=LOSS.lo_alpha,
-                                               lo_beta=LOSS.lo_beta,
-                                               eval=not is_train,
-                                               cal_trsp_cost=cal_trsp_cost,
-                                               device=device)
-    if not is_train and RUN.langevin_sampling:
-        zs = langevin_sampling(zs=zs,
-                               z_dim=z_dim,
-                               fake_labels=fake_labels,
-                               generator=generator,
-                               discriminator=discriminator,
-                               batch_size=batch_size,
-                               langevin_rate=RUN.langevin_rate,
-                               langevin_noise_std=RUN.langevin_noise_std,
-                               langevin_decay=RUN.langevin_decay,
-                               langevin_decay_steps=RUN.langevin_decay_steps,
-                               langevin_steps=RUN.langevin_steps,
-                               device=device)
+    zs = (torch.FloatTensor([i for i in range(10)]*6 + [0,1,2,3])-5)/5
+    zs = zs.unsqueeze(1).repeat(1, 512).to(device)
+    fake_labels = torch.LongTensor([i for i in range(10)]*6 + [0,1,2,3]).to(device)
+    zs_eps = None
+    # zs, fake_labels, zs_eps = sample_zy(z_prior=z_prior,
+    #                                     batch_size=batch_size,
+    #                                     z_dim=z_dim,
+    #                                     num_classes=num_classes,
+    #                                     truncation_factor=-1 if is_stylegan else truncation_factor,
+    #                                     y_sampler=y_sampler,
+    #                                     radius=radius,
+    #                                     device=device)
     if is_stylegan:
         ws, fake_images = stylegan_generate_images(zs=zs,
                                                    fake_labels=fake_labels,
@@ -160,6 +137,7 @@ def generate_images(z_prior, truncation_factor, batch_size, z_dim, num_classes, 
             _, fake_images_eps = generator(zs_eps, fake_labels, eval=not is_train)
     else:
         fake_images_eps = None
+    trsp_cost=None
     return fake_images, fake_labels, fake_images_eps, trsp_cost, ws
 
 def stylegan_generate_images(zs, fake_labels, num_classes, style_mixing_p, generator_mapping, generator_synthesis, truncation_psi, truncation_cutoff):
@@ -173,6 +151,7 @@ def stylegan_generate_images(zs, fake_labels, num_classes, style_mixing_p, gener
         cutoff = torch.where(torch.rand([], device=ws.device) < style_mixing_p, cutoff, torch.full_like(cutoff, ws.shape[1]))
         ws[:, cutoff:] = generator_mapping(torch.randn_like(zs), one_hot_fake_labels, skip_w_avg_update=True)[:, cutoff:]
     fake_images = generator_synthesis(ws)
+    fake_images = fake_images / fake_images.max()
     return ws, fake_images
 
 

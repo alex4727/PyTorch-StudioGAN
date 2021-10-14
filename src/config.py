@@ -480,12 +480,12 @@ class Configurations(object):
                                                              lr=self.OPTIMIZATION.g_lr,
                                                              betas=betas_g,
                                                              weight_decay=self.OPTIMIZATION.g_weight_decay,
-                                                             eps=1e-6)
+                                                             eps=1e-8)
             self.OPTIMIZATION.d_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, Dis.parameters()),
                                                              lr=self.OPTIMIZATION.d_lr,
                                                              betas=betas_d,
                                                              weight_decay=self.OPTIMIZATION.d_weight_decay,
-                                                             eps=1e-6)
+                                                             eps=1e-8)
         else:
             raise NotImplementedError
 

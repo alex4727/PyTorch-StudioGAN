@@ -297,6 +297,7 @@ class SynthesisLayer(torch.nn.Module):
 
     def forward(self, x, w, noise_mode="random", fused_modconv=True, gain=1):
         assert noise_mode in ["random", "const", "none"]
+        noise_mode = "const"
         in_resolution = self.resolution // self.up
         misc.assert_shape(x, [None, self.weight.shape[1], in_resolution, in_resolution])
         styles = self.affine(w)
@@ -528,6 +529,13 @@ class Generator(torch.nn.Module):
         self.synthesis = SynthesisNetwork(w_dim=w_dim, img_resolution=img_resolution, img_channels=img_channels, **synthesis_kwargs)
         self.num_ws = self.synthesis.num_ws
         self.mapping = MappingNetwork(z_dim=z_dim, c_dim=c_dim, w_dim=w_dim, num_ws=self.num_ws, **mapping_kwargs)
+        
+        # for module in self.modules():
+        #     for m in module:
+        #         try:
+        #             torch.nn.init.constant_(m.weight, 0.0001)
+        #         except:
+        #             module.bias.data.fill_(0.)
 
     def forward(self, z, c, eval=False, truncation_psi=1, truncation_cutoff=None, **synthesis_kwargs):
         ws = self.mapping(z, c, truncation_psi=truncation_psi, truncation_cutoff=truncation_cutoff)
@@ -814,6 +822,9 @@ class Discriminator(torch.nn.Module):
                 self.embedding_mi = MappingNetwork(z_dim=0, c_dim=c_dim, w_dim=d_embed_dim, num_ws=None, w_avg_beta=None, num_layers=1, **mapping_kwargs)
             else:
                 raise NotImplementedError
+        # for module in self.modules():
+        #     torch.nn.init.constant_(module.weight, 0.0001)
+        #     module.bias.data.fill_(0.)
 
     def forward(self, img, label, eval=False, adc_fake=False, **block_kwargs):
         x, embed, proxy, cls_output = None, None, None, None

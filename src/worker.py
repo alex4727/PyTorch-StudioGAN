@@ -98,9 +98,9 @@ class WORKER(object):
         self.fm_loss = losses.feature_matching_loss
 
         if self.is_stylegan and self.LOSS.apply_r1_reg:
-            self.r1_lambda = self.STYLEGAN2.d_reg_interval/self.OPTIMIZATION.acml_steps
+            self.r1_lambda = self.STYLEGAN2.d_reg_interval/self.OPTIMIZATION.acml_steps*self.LOSS.r1_lambda
         if self.is_stylegan and self.STYLEGAN2.apply_pl_reg:
-            self.pl_lambda = self.STYLEGAN2.g_reg_interval/self.OPTIMIZATION.acml_steps
+            self.pl_lambda = self.STYLEGAN2.g_reg_interval/self.OPTIMIZATION.acml_steps*self.STYLEGAN2.pl_weight
 
         if self.AUG.apply_ada:
             self.AUG.series_augment.p.copy_(torch.as_tensor(self.ada_p))
@@ -223,15 +223,14 @@ class WORKER(object):
         misc.toggle_grad(model=self.Gen, grad=False, num_freeze_layers=-1, is_stylegan=self.is_stylegan)
         misc.toggle_grad(model=self.Dis, grad=True, num_freeze_layers=self.RUN.freezeD, is_stylegan=self.is_stylegan)
         self.Gen.apply(misc.untrack_bn_statistics)
-        # sample real images and labels from the true data distribution
-        real_image_basket, real_label_basket = self.sample_data_basket()
         for step_index in range(self.OPTIMIZATION.d_updates_per_step):
             self.OPTIMIZATION.d_optimizer.zero_grad()
             for acml_index in range(self.OPTIMIZATION.acml_steps):
                 with torch.cuda.amp.autocast() if self.RUN.mixed_precision and not self.is_stylegan else misc.dummy_context_mgr() as mpc:
                     # load real images and labels onto the GPU memory
-                    real_images = real_image_basket[batch_counter].to(self.local_rank, non_blocking=True)
-                    real_labels = real_label_basket[batch_counter].to(self.local_rank, non_blocking=True)
+                    a = torch.ones([64,3,32,32]) + torch.as_tensor([i for i in range(64)]).unsqueeze(1).unsqueeze(2).unsqueeze(3)
+                    real_images = ((a.to(self.local_rank) * (current_step % 10 + 1) - 5)/64)                    
+                    real_labels = torch.LongTensor([i for i in range(10)]*6 + [0,1,2,3]).to(self.local_rank)
                     # sample fake images and labels from p(G(z), y)
                     fake_images, fake_labels, fake_images_eps, trsp_cost, ws = sample.generate_images(
                         z_prior=self.MODEL.z_prior,
@@ -407,8 +406,9 @@ class WORKER(object):
             if self.LOSS.apply_r1_reg and (self.OPTIMIZATION.d_updates_per_step*current_step + step_index) % self.STYLEGAN2.d_reg_interval == 0:
                 self.OPTIMIZATION.d_optimizer.zero_grad()
                 for acml_index in range(self.OPTIMIZATION.acml_steps):
-                    real_images = real_image_basket[batch_counter - acml_index - 1].to(self.local_rank, non_blocking=True)
-                    real_labels = real_label_basket[batch_counter - acml_index - 1].to(self.local_rank, non_blocking=True)
+                    a = torch.ones([64,3,32,32]) + torch.as_tensor([i for i in range(64)]).unsqueeze(1).unsqueeze(2).unsqueeze(3)
+                    real_images = ((a.to(self.local_rank) * (current_step % 10 + 1) - 5)/64)                    
+                    real_labels = torch.LongTensor([i for i in range(10)]*6 + [0,1,2,3]).to(self.local_rank)
                     real_images.requires_grad_(True)
                     real_dict = self.Dis(self.AUG.series_augment(real_images), real_labels)
                     self.r1_penalty = real_dict["adv_output"].mean()*0 + self.r1_lambda*losses.stylegan_cal_r1_reg(adv_output=real_dict["adv_output"],
@@ -430,8 +430,9 @@ class WORKER(object):
                     dist.all_reduce(self.dis_sign_real, op=dist.ReduceOp.SUM, group=self.group)
                 ada_heuristic = (self.dis_sign_real[0] / self.dis_sign_real[1]).item()
                 adjust = np.sign(ada_heuristic - self.AUG.ada_target) * (self.dis_sign_real[1].item()) / (self.AUG.ada_kimg * 1000)
-                self.ada_p = min(torch.Tensor(1.), max(self.ada_p + adjust, torch.Tensor(0.)))
+                self.ada_p = min(torch.as_tensor(1.), max(self.ada_p + adjust, torch.as_tensor(0.)))
                 self.AUG.series_augment.p.copy_(torch.as_tensor(self.ada_p))
+                print(self.AUG.series_augment.p.item(), f"Current_Step {current_step}")
                 self.dis_sign_real_log.copy_(self.dis_sign_real), self.dis_sign_fake_log.copy_(self.dis_sign_fake)
                 self.dis_logit_real_log.copy_(self.dis_logit_real), self.dis_logit_fake_log.copy_(self.dis_logit_fake)
                 self.dis_sign_real.mul_(0), self.dis_sign_fake.mul_(0)
@@ -447,6 +448,8 @@ class WORKER(object):
     # train Generator
     # -----------------------------------------------------------------------------
     def train_generator(self, current_step):
+        if (current_step == 400):
+            print("hello")
         # toggle gradients of the generator and discriminator
         misc.toggle_grad(model=self.Dis, grad=False, num_freeze_layers=-1, is_stylegan=self.is_stylegan)
         misc.toggle_grad(model=self.Gen, grad=True, num_freeze_layers=-1, is_stylegan=self.is_stylegan)

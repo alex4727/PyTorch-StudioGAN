@@ -285,6 +285,28 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
     # -----------------------------------------------------------------------------
     # train GAN until "total_setps" generator updates
     # -----------------------------------------------------------------------------
+    # val = 0.01
+    # for k,v in Gen.state_dict().items():
+    #     target = (torch.ones_like(v)*val).to('cuda')
+    #     v.copy_(target)
+
+    # for k,v in Gen_ema.state_dict().items():
+    #     target = (torch.ones_like(v)*val).to('cuda')
+    #     v.copy_(target)
+
+    # for k,v in Dis.state_dict().items():
+    #     target = (torch.ones_like(v)*val).to('cuda')
+    #     v.copy_(target)
+
+    gen_ckpt = torch.load("/root/code/weights/gen_weights.pth")
+    dis_ckpt = torch.load("/root/code/weights/dis_weights.pth")
+    gen_ema_ckpt = torch.load("/root/code/weights/gen_ema_weights.pth")
+
+    Gen.load_state_dict(gen_ckpt)
+    Dis.load_state_dict(dis_ckpt)
+    Gen_ema.load_state_dict(gen_ema_ckpt)
+
+
     if cfgs.RUN.train:
         if global_rank == 0: logger.info("Start training!")
         worker.training, worker.topk = True, topk
