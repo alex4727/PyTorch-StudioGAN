@@ -4,6 +4,7 @@
 
 # src/utils/loss.py
 
+from pytorch_metric_learning import losses
 from torch.nn import DataParallel
 from torch import autograd
 import torch
@@ -313,26 +314,61 @@ def d_ls(d_logit_real, d_logit_fake, DDP):
     d_loss = 0.5 * (d_logit_real - torch.ones_like(d_logit_real))**2 + 0.5 * (d_logit_fake)**2
     return d_loss.mean()
 
-
 def g_ls(d_logit_fake, DDP):
     gen_loss = 0.5 * (d_logit_fake - torch.ones_like(d_logit_fake))**2
     return gen_loss.mean()
 
-
 def d_hinge(d_logit_real, d_logit_fake, DDP):
     return torch.mean(F.relu(1. - d_logit_real)) + torch.mean(F.relu(1. + d_logit_fake))
-
 
 def g_hinge(d_logit_fake, DDP):
     return -torch.mean(d_logit_fake)
 
-
 def d_wasserstein(d_logit_real, d_logit_fake, DDP):
     return torch.mean(d_logit_fake - d_logit_real)
 
-
 def g_wasserstein(d_logit_fake, DDP):
     return -torch.mean(d_logit_fake)
+
+class ProxyNCALoss():
+    def __init__(self):
+        loss_func = losses.ProxyNCALoss()
+    def proxy_nca(self, d_logit_fake, d_logit_real, DDP=False):
+        embeddings = torch.cat(d_logit_fake, d_logit_real)
+        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
+        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
+        labels = torch.cat(fake_labels, real_labels)
+        return self.loss_func(embeddings, labels)
+
+class ProxyAnchorLoss():
+    def __init__(self):
+        loss_func = losses.ProxyAnchorLoss()
+    def proxy_anchor(self, d_logit_fake, d_logit_real, DDP=False):
+        embeddings = torch.cat(d_logit_fake, d_logit_real)
+        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
+        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
+        labels = torch.cat(fake_labels, real_labels)
+        return self.loss_func(embeddings, labels)
+
+class SupConLoss():
+    def __init__(self):
+        loss_func = losses.SupConLoss()
+    def sup_con(self, d_logit_fake, d_logit_real, DDP=False):
+        embeddings = torch.cat(d_logit_fake, d_logit_real)
+        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
+        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
+        labels = torch.cat(fake_labels, real_labels)
+        return self.loss_func(embeddings, labels)
+
+class TripletMarginLoss():
+    def __init__(self):
+        loss_func = losses.TripletMarginLoss()
+    def triplet_margin(self, d_logit_fake, d_logit_real, DDP=False):
+        embeddings = torch.cat(d_logit_fake, d_logit_real)
+        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
+        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
+        labels = torch.cat(fake_labels, real_labels)
+        return self.loss_func(embeddings, labels)
 
 
 def crammer_singer_loss(adv_output, label, DDP, **_):

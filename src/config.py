@@ -380,6 +380,22 @@ class Configurations(object):
         if self.MODEL.d_cond_mtd == "MH" and self.LOSS.adv_loss == "MH":
             self.LOSS.g_loss = losses.crammer_singer_loss
             self.LOSS.d_loss = losses.crammer_singer_loss
+        elif self.LOSS.adv_loss == "ProxyNCA":
+            self.loss_obj = losses.ProxyNCALoss()
+            self.LOSS.g_loss = self.loss_obj.proxy_nca
+            self.LOSS.d_loss = self.loss_obj.proxy_nca
+        elif self.LOSS.adv_loss == "ProxyAnchor":
+            self.loss_obj = losses.ProxyAnchorLoss()
+            self.LOSS.g_loss = self.loss_obj.proxy_anchor
+            self.LOSS.d_loss = self.loss_obj.proxy_anchor
+        elif self.LOSS.adv_loss == "SupCon":
+            self.loss_obj = losses.SupConLoss()
+            self.LOSS.g_loss = self.loss_obj.sup_con
+            self.LOSS.d_loss = self.loss_obj.sup_con
+        elif self.LOSS.adv_loss == "TripletMargin":
+            self.loss_obj = losses.TripletMarginLoss()
+            self.LOSS.g_loss = self.loss_obj.triplet_margin
+            self.LOSS.d_loss = self.loss_obj.triplet_margin
         else:
             g_losses = {
                 "vanilla": losses.g_vanilla,
