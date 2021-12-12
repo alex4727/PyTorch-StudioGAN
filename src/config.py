@@ -382,20 +382,20 @@ class Configurations(object):
             self.LOSS.d_loss = losses.crammer_singer_loss
         elif self.LOSS.adv_loss == "ProxyNCA":
             self.loss_obj = losses.ProxyNCALoss()
-            self.LOSS.g_loss = self.loss_obj.proxy_nca
-            self.LOSS.d_loss = self.loss_obj.proxy_nca
+            self.LOSS.g_loss = self.loss_obj.g_proxy_nca
+            self.LOSS.d_loss = self.loss_obj.d_proxy_nca
         elif self.LOSS.adv_loss == "ProxyAnchor":
             self.loss_obj = losses.ProxyAnchorLoss()
-            self.LOSS.g_loss = self.loss_obj.proxy_anchor
-            self.LOSS.d_loss = self.loss_obj.proxy_anchor
+            self.LOSS.g_loss = self.loss_obj.g_proxy_anchor
+            self.LOSS.d_loss = self.loss_obj.d_proxy_anchor
         elif self.LOSS.adv_loss == "SupCon":
             self.loss_obj = losses.SupConLoss()
-            self.LOSS.g_loss = self.loss_obj.sup_con
-            self.LOSS.d_loss = self.loss_obj.sup_con
+            self.LOSS.g_loss = self.loss_obj.g_sup_con
+            self.LOSS.d_loss = self.loss_obj.d_sup_con
         elif self.LOSS.adv_loss == "TripletMargin":
             self.loss_obj = losses.TripletMarginLoss()
-            self.LOSS.g_loss = self.loss_obj.triplet_margin
-            self.LOSS.d_loss = self.loss_obj.triplet_margin
+            self.LOSS.g_loss = self.loss_obj.g_triplet_margin
+            self.LOSS.d_loss = self.loss_obj.d_triplet_margin
         else:
             g_losses = {
                 "vanilla": losses.g_vanilla,

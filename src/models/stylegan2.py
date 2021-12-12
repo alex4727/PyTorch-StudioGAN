@@ -784,7 +784,7 @@ class Discriminator(torch.nn.Module):
         elif self.d_cond_mtd == "MD":
             self.linear1 = FullyConnectedLayer(channels_dict[4], self.num_classes, bias=True)
         elif self.d_cond_mtd == "SPD":
-            self.linear1 = FullyConnectedLayer(channels_dict[4], 1 if self.cmap_dim == 0 else self.cmap_dim, bias=True)
+            self.linear1 = FullyConnectedLayer(channels_dict[4], 128, bias=True)
         else:
             self.linear1 = FullyConnectedLayer(channels_dict[4], 1, bias=True)
 
@@ -798,7 +798,7 @@ class Discriminator(torch.nn.Module):
         elif self.d_cond_mtd == "PD":
             self.linear2 = FullyConnectedLayer(channels_dict[4], self.cmap_dim, bias=True)
         elif self.d_cond_mtd == "SPD":
-            self.mapping = MappingNetwork(z_dim=0, c_dim=c_dim, w_dim=self.cmap_dim, num_ws=None, w_avg_beta=None, **mapping_kwargs)
+            self.mapping = MappingNetwork(z_dim=0, c_dim=c_dim, w_dim=128, num_ws=None, w_avg_beta=None, **mapping_kwargs)
         elif self.d_cond_mtd in ["2C", "D2DCE"]:
             self.linear2 = FullyConnectedLayer(channels_dict[4], d_embed_dim, bias=True)
             self.embedding = MappingNetwork(z_dim=0, c_dim=c_dim, w_dim=d_embed_dim, num_ws=None, w_avg_beta=None, num_layers=1, **mapping_kwargs)
@@ -847,7 +847,7 @@ class Discriminator(torch.nn.Module):
         elif self.d_cond_mtd == "SPD":
             embed = self.linear1(h)
             cmap = self.mapping(None, oh_label)
-            adv_output = (embed * cmap).sum(dim=1, keepdim=True) * (1 / np.sqrt(self.cmap_dim))
+            adv_output = (embed * cmap)
         elif self.d_cond_mtd in ["2C", "D2DCE"]:
             embed = self.linear2(h)
             proxy = self.embedding(None, oh_label)
