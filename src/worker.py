@@ -97,6 +97,9 @@ class WORKER(object):
         self.ce_loss = torch.nn.CrossEntropyLoss()
         self.fm_loss = losses.feature_matching_loss
 
+        self.real_image_basket_save = None
+        self.real_label_basket_save = None
+
         if self.is_stylegan and self.LOSS.apply_r1_reg:
             self.r1_lambda = self.LOSS.r1_lambda*self.STYLEGAN2.d_reg_interval/self.OPTIMIZATION.acml_steps
         if self.is_stylegan and self.STYLEGAN2.apply_pl_reg:
@@ -231,6 +234,7 @@ class WORKER(object):
         self.Gen.apply(misc.untrack_bn_statistics)
         # sample real images and labels from the true data distribution
         real_image_basket, real_label_basket = self.sample_data_basket()
+        self.real_image_basket_save, self.real_label_basket_save = real_image_basket, real_label_basket
         for step_index in range(self.OPTIMIZATION.d_updates_per_step):
             self.OPTIMIZATION.d_optimizer.zero_grad()
             for acml_index in range(self.OPTIMIZATION.acml_steps):
@@ -448,15 +452,22 @@ class WORKER(object):
     # train Generator
     # -----------------------------------------------------------------------------
     def train_generator(self, current_step):
+        batch_counter = 0
         # toggle gradients of the generator and discriminator
         misc.toggle_grad(model=self.Dis, grad=False, num_freeze_layers=-1, is_stylegan=self.is_stylegan)
         misc.toggle_grad(model=self.Gen, grad=True, num_freeze_layers=-1, is_stylegan=self.is_stylegan)
         self.Gen.apply(misc.track_bn_statistics)
+
+        if self.real_image_basket_save or self.real_label_basket_save is None:
+            self.real_image_basket_save, self.real_label_basket_save = self.sample_data_basket()
+
         for step_index in range(self.OPTIMIZATION.g_updates_per_step):
             self.OPTIMIZATION.g_optimizer.zero_grad()
             for acml_step in range(self.OPTIMIZATION.acml_steps):
                 with torch.cuda.amp.autocast() if self.RUN.mixed_precision and not self.is_stylegan else misc.dummy_context_mgr() as mpc:
                     # sample fake images and labels from p(G(z), y)
+                    real_images = self.real_image_basket_save[batch_counter].to(self.local_rank, non_blocking=True)
+                    real_labels = self.real_label_basket_save[batch_counter].to(self.local_rank, non_blocking=True)
                     fake_images, fake_labels, fake_images_eps, trsp_cost, ws = sample.generate_images(
                         z_prior=self.MODEL.z_prior,
                         truncation_factor=-1.0,
@@ -478,9 +489,11 @@ class WORKER(object):
                         cal_trsp_cost=True if self.LOSS.apply_lo else False)
 
                     # apply differentiable augmentations if "apply_diffaug" is True
+                    real_images_ = self.AUG.series_augment(real_images)
                     fake_images_ = self.AUG.series_augment(fake_images)
 
                     # calculate adv_output, embed, proxy, and cls_output using the discriminator
+                    real_dict = self.Dis(real_images_, real_labels)
                     fake_dict = self.Dis(fake_images_, fake_labels)
 
                     if self.AUG.apply_ada:
@@ -500,7 +513,7 @@ class WORKER(object):
                     if self.LOSS.adv_loss == "MH":
                         gen_acml_loss = self.LOSS.mh_lambda * self.LOSS.g_loss(DDP=self.DDP, **fake_dict, )
                     else:
-                        gen_acml_loss = self.LOSS.g_loss(fake_dict["adv_output"], DDP=self.DDP)
+                        gen_acml_loss = self.LOSS.g_loss(real_dict["adv_output"], fake_dict["adv_output"], DDP=self.DDP)
 
                     # calculate class conditioning loss defined by "MODEL.d_cond_mtd"
                     if self.MODEL.d_cond_mtd in self.MISC.classifier_based_GAN:
@@ -537,6 +550,7 @@ class WORKER(object):
 
                     # adjust gradients for applying gradient accumluation trick
                     gen_acml_loss = gen_acml_loss / self.OPTIMIZATION.acml_steps
+                    batch_counter += 1
 
                 # accumulate gradients of the generator
                 if self.RUN.mixed_precision and not self.is_stylegan:

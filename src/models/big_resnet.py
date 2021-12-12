@@ -301,7 +301,7 @@ class Discriminator(nn.Module):
         elif self.d_cond_mtd == "MD":
             self.linear1 = MODULES.d_linear(in_features=self.out_dims[-1], out_features=num_classes, bias=True)
         else:
-            self.linear1 = MODULES.d_linear(in_features=self.out_dims[-1], out_features=1, bias=True)
+            self.linear1 = MODULES.d_linear(in_features=self.out_dims[-1], out_features=128, bias=True)
 
         # double num_classes for Auxiliary Discriminative Classifier
         if self.aux_cls_type == "ADC":
@@ -358,7 +358,7 @@ class Discriminator(nn.Module):
                     h = F.normalize(h, dim=1)
                 cls_output = self.linear2(h)
             elif self.d_cond_mtd == "PD":
-                adv_output = adv_output + torch.sum(torch.mul(self.embedding(label), h), 1)
+                adv_output = adv_output + torch.sum(torch.mul(self.embedding(label), h), 1).unsqueeze(dim=1).repeat(1, 128)
             elif self.d_cond_mtd in ["2C", "D2DCE"]:
                 embed = self.linear2(h)
                 proxy = self.embedding(label)

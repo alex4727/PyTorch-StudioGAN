@@ -332,42 +332,49 @@ def g_wasserstein(d_logit_fake, DDP):
 
 class ProxyNCALoss():
     def __init__(self):
-        loss_func = losses.ProxyNCALoss()
-    def proxy_nca(self, d_logit_fake, d_logit_real, DDP=False):
-        embeddings = torch.cat(d_logit_fake, d_logit_real)
-        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
-        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
-        labels = torch.cat(fake_labels, real_labels)
+        self.loss_func = losses.ProxyNCALoss(2, 128)
+    def g_proxy_nca(self, d_logit_fake, d_logit_real, DDP=False):
+        embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
+        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
+        labels = torch.cat((fake_labels, real_labels), 0)
+        return -1 * self.loss_func(embeddings, labels)
+    def d_proxy_nca(self, d_logit_fake, d_logit_real, DDP=False):
+        embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
+        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
+        labels = torch.cat((fake_labels, real_labels), 0)
         return self.loss_func(embeddings, labels)
+
 
 class ProxyAnchorLoss():
     def __init__(self):
-        loss_func = losses.ProxyAnchorLoss()
+        self.loss_func = losses.ProxyAnchorLoss(2, 128)
     def proxy_anchor(self, d_logit_fake, d_logit_real, DDP=False):
-        embeddings = torch.cat(d_logit_fake, d_logit_real)
-        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
-        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
-        labels = torch.cat(fake_labels, real_labels)
+        embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
+        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
+        labels = torch.cat((fake_labels, real_labels), 0)
         return self.loss_func(embeddings, labels)
 
 class SupConLoss():
     def __init__(self):
-        loss_func = losses.SupConLoss()
+        self.loss_func = losses.SupConLoss(2, 128)
     def sup_con(self, d_logit_fake, d_logit_real, DDP=False):
-        embeddings = torch.cat(d_logit_fake, d_logit_real)
-        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
-        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
-        labels = torch.cat(fake_labels, real_labels)
+        embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
+        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
+        labels = torch.cat((fake_labels, real_labels), 0)
         return self.loss_func(embeddings, labels)
 
 class TripletMarginLoss():
     def __init__(self):
-        loss_func = losses.TripletMarginLoss()
+        self.loss_func = losses.TripletMarginLoss(2, 128)
     def triplet_margin(self, d_logit_fake, d_logit_real, DDP=False):
-        embeddings = torch.cat(d_logit_fake, d_logit_real)
-        fake_labels = torch.zeros_like(d_logit_fake.shape[0], device=d_logit_fake.device)
-        real_labels = torch.ones_like(d_logit_fake.shape[0], device=d_logit_real.device)
-        labels = torch.cat(fake_labels, real_labels)
+        embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
+        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
+        labels = torch.cat((fake_labels, real_labels), 0)
         return self.loss_func(embeddings, labels)
 
 
