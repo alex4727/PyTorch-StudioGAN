@@ -335,10 +335,10 @@ class ProxyNCALoss():
         self.loss_func = losses.ProxyNCALoss(2, 128)
     def g_proxy_nca(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
-        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        fake_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
         real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
         labels = torch.cat((fake_labels, real_labels), 0)
-        return -1 * self.loss_func(embeddings, labels)
+        return self.loss_func(embeddings, labels)
     def d_proxy_nca(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
         fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
@@ -351,10 +351,10 @@ class ProxyAnchorLoss():
         self.loss_func = losses.ProxyAnchorLoss(2, 128)
     def g_proxy_anchor(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
-        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        fake_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
         real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
         labels = torch.cat((fake_labels, real_labels), 0)
-        return -1 * self.loss_func(embeddings, labels)
+        return self.loss_func(embeddings, labels)
     def d_proxy_anchor(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
         fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
@@ -367,10 +367,10 @@ class SupConLoss():
         self.loss_func = losses.SupConLoss()
     def g_sup_con(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
-        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        fake_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
         real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
         labels = torch.cat((fake_labels, real_labels), 0)
-        return -1 * self.loss_func(embeddings, labels)
+        return self.loss_func(embeddings, labels)
     def d_sup_con(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
         fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
@@ -383,10 +383,10 @@ class TripletMarginLoss():
         self.loss_func = losses.TripletMarginLoss()
     def g_triplet_margin(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
-        fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
+        fake_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
         real_labels = torch.ones(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_real.device)
         labels = torch.cat((fake_labels, real_labels), 0)
-        return -1 * self.loss_func(embeddings, labels)
+        return self.loss_func(embeddings, labels)
     def d_triplet_margin(self, d_logit_fake, d_logit_real, DDP=False):
         embeddings = torch.cat((d_logit_fake, d_logit_real), 0)
         fake_labels = torch.zeros(d_logit_fake.shape[0], dtype = torch.int64, device=d_logit_fake.device)
