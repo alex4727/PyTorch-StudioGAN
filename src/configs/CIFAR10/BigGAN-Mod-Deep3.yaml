@@ -9,8 +9,6 @@ MODEL:
   apply_g_sn: True
   apply_d_sn: True
   apply_attn: True
-  attn_g_loc: [2]
-  attn_d_loc: [1]
   z_dim: 128
   g_shared_dim: 128
   g_conv_dim: 128
@@ -24,5 +22,9 @@ LOSS:
   adv_loss: "hinge"
 OPTIMIZATION:
   batch_size: 128
+  g_lr: 0.0002
+  d_lr: 0.00005
+  d_updates_per_step: 5
+
 
 
