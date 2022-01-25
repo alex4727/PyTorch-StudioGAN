@@ -206,10 +206,11 @@ class DiscBlock(nn.Module):
         if self.downsample:
             self.average_pooling = nn.AvgPool2d(2)
 
-    def forward(self, x):
+    def forward(self, x, index):
         x0 = x
-
-        x = self.activation(x)
+        
+        if index != 0:
+            x = self.activation(x)
         x = self.conv2d1(x)
 
         x = self.conv2d2(self.activation(x))
@@ -332,7 +333,7 @@ class Discriminator(nn.Module):
             h = x
             for index, blocklist in enumerate(self.blocks):
                 for block in blocklist:
-                    h = block(h)
+                    h = block(h, index)
             h = self.activation(h)
             h = torch.sum(h, dim=[2, 3])
 
