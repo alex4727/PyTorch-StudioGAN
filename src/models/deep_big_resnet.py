@@ -333,7 +333,10 @@ class Discriminator(nn.Module):
             h = x
             for index, blocklist in enumerate(self.blocks):
                 for block in blocklist:
-                    h = block(h, index)
+                    if isinstance(block, DiscBlock):
+                        h = block(h, index)
+                    else:
+                        h = block(h)
             h = self.activation(h)
             h = torch.sum(h, dim=[2, 3])
 
