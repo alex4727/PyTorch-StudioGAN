@@ -11,3 +11,7 @@ data/
 wandb/
 test/
 *.csv
+*.xlsx
+.ipynb_checkpoints/
+*.pickle
+

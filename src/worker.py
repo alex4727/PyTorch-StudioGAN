@@ -931,7 +931,9 @@ class WORKER(object):
                     misc.save_dict_npy(directory=join(self.RUN.save_dir, "statistics", self.run_name, "train" if training else "eval"),
                                        name="metrics",
                                        dictionary=save_dict)
-
+                    
+            with open(self.run_name+"---"+self.cfgs.RUN.resize_fn+".pickle", "w") as f:
+                pickle.dump(metric_dict, f)
         misc.make_GAN_trainable(self.Gen, self.Gen_ema, self.Dis)
         return is_best
 
