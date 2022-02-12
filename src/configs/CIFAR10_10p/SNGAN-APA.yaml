@@ -15,4 +15,4 @@ AUG:
   apa_kimg: 500
   apa_interval: 4
 OPTIMIZATION:
-  total_steps: 200000
+  total_steps: 150000

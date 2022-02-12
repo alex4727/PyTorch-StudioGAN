@@ -21,4 +21,4 @@ MODEL:
 LOSS:
   adv_loss: "hinge"
 OPTIMIZATION:
-  total_steps: 200000
+  total_steps: 150000

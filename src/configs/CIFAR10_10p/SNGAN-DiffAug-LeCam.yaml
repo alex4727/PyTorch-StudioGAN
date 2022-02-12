@@ -16,4 +16,4 @@ AUG:
   apply_diffaug: True
   diffaug_type: "diffaug"
 OPTIMIZATION:
-  total_steps: 200000
+  total_steps: 150000

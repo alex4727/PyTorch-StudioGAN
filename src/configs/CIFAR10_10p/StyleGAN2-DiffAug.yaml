@@ -28,7 +28,7 @@ OPTIMIZATION:
   d_first: False
   g_updates_per_step: 1
   d_updates_per_step: 1
-  total_steps: 1000000
+  total_steps: 500000
 AUG:
   apply_diffaug: True
   diffaug_type: "diffaug"
