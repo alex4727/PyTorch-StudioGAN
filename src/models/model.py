@@ -25,7 +25,7 @@ def load_generator_discriminator(DATA, OPTIMIZATION, MODEL, STYLEGAN, MODULES, R
 
     if MODEL.backbone in ["stylegan2", "stylegan3"]:
         channel_base, channel_max = 32768 if MODEL.backbone == "stylegan3" or DATA.img_size >= 512 or \
-                                    DATA.name in ["CIFAR10", "CIFAR100"] else 16384, 512
+                                    DATA.name in ["CIFAR10", "CIFAR100", "CIFAR10_10p", "CIFAR10_30p"] else 16384, 512
         gen_c_dim = DATA.num_classes if MODEL.g_cond_mtd == "cAdaIN" else 0
         dis_c_dim = DATA.num_classes if MODEL.d_cond_mtd in STYLEGAN.cond_type else 0
         if RUN.mixed_precision:
