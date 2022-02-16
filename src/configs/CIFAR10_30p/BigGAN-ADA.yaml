@@ -1,5 +1,5 @@
 DATA:
-  name: "CIFAR10"
+  name: "CIFAR10_30p"
   img_size: 32
   num_classes: 10
 MODEL:
