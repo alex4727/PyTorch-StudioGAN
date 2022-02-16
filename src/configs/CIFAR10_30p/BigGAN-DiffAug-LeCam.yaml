@@ -25,7 +25,7 @@ LOSS:
   lecam_ema_start_iter: 1000
   lecam_ema_decay: 0.99
 OPTIMIZATION:
-  total_steps: 200000
+  total_steps: 400000
 AUG:
   apply_diffaug: True
   diffaug_type: "diffaug"

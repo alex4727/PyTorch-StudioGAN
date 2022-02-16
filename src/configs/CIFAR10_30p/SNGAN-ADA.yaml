@@ -16,4 +16,4 @@ AUG:
   ada_kimg: 500
   ada_interval: 4
 OPTIMIZATION:
-  total_steps: 150000
+  total_steps: 200000
