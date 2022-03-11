@@ -248,6 +248,8 @@ class WORKER(object):
                     # load real images and labels onto the GPU memory
                     real_images = real_image_basket[batch_counter].to(self.local_rank, non_blocking=True)
                     real_labels = real_label_basket[batch_counter].to(self.local_rank, non_blocking=True)
+                    real_images = torch.ones_like(real_images).to('cuda')
+                    real_labels = torch.zeros_like(real_labels).to('cuda')
                     # sample fake images and labels from p(G(z), y)
                     fake_images, fake_labels, fake_images_eps, trsp_cost, ws, _, _ = sample.generate_images(
                         z_prior=self.MODEL.z_prior,
@@ -317,6 +319,7 @@ class WORKER(object):
                         dis_acml_loss += self.LOSS.d_loss(fake_dict["adv_output"], self.lossy, DDP=self.DDP)
                     else:
                         dis_acml_loss = self.LOSS.d_loss(real_dict["adv_output"], fake_dict["adv_output"], DDP=self.DDP)
+                        print("Dis_adv", dis_acml_loss.item())
 
                     # calculate class conditioning loss defined by "MODEL.d_cond_mtd"
                     if self.MODEL.d_cond_mtd in self.MISC.classifier_based_GAN:
@@ -462,6 +465,9 @@ class WORKER(object):
                 for acml_index in range(self.OPTIMIZATION.acml_steps):
                     real_images = real_image_basket[batch_counter - acml_index - 1].to(self.local_rank, non_blocking=True)
                     real_labels = real_label_basket[batch_counter - acml_index - 1].to(self.local_rank, non_blocking=True)
+                    real_images = torch.ones_like(real_images).to('cuda')
+                    real_labels = torch.zeros_like(real_labels).to('cuda')
+
                     # blur images for stylegan3-r
                     if self.MODEL.backbone == "stylegan3" and self.STYLEGAN.stylegan3_cfg == "stylegan3-r" and self.blur_init_sigma != "N/A":
                         blur_sigma = max(1 - (self.effective_batch_size * current_step) / (self.blur_fade_kimg * 1e3), 0) * self.blur_init_sigma
@@ -477,6 +483,7 @@ class WORKER(object):
                         misc.enable_allreduce(real_dict)
                     self.r1_penalty *= self.STYLEGAN.d_reg_interval*self.LOSS.r1_lambda/self.OPTIMIZATION.acml_steps
                     self.r1_penalty.backward()
+                    print("Dis_r1", self.r1_penalty.item())
 
                     if self.AUG.apply_ada or self.AUG.apply_apa:
                         self.dis_sign_real += torch.tensor((real_dict["adv_output"].sign().sum().item(),
@@ -498,6 +505,7 @@ class WORKER(object):
                 self.dis_logit_real_log.copy_(self.dis_logit_real), self.dis_logit_fake_log.copy_(self.dis_logit_fake)
                 self.dis_sign_real.mul_(0), self.dis_sign_fake.mul_(0)
                 self.dis_logit_real.mul_(0), self.dis_logit_fake.mul_(0)
+                print("ada",self.aa_p.item())
 
             # clip weights to restrict the discriminator to satisfy 1-Lipschitz constraint
             if self.LOSS.apply_wc:
@@ -634,6 +642,7 @@ class WORKER(object):
                 if self.RUN.mixed_precision and not self.is_stylegan:
                     self.scaler.scale(gen_acml_loss).backward()
                 else:
+                    print("G_adv", gen_acml_loss.item())
                     gen_acml_loss.backward()
 
             # update the generator using the pre-defined optimizer
@@ -676,10 +685,10 @@ class WORKER(object):
                             f = torch.arange(-blur_size, blur_size + 1, device=fake_images.device).div(blur_sigma).square().neg().exp2()
                             fake_images = upfirdn2d.filter2d(fake_images, f / f.sum())
                     self.pl_reg_loss = self.pl_reg.cal_pl_reg(fake_images=fake_images, ws=ws) + fake_images[:,0,0,0].mean()*0
-                    self.pl_reg_loss *= self.STYLEGAN.pl_weight*self.STYLEGAN.g_reg_interval/self.OPTIMIZATION.acml_steps
+                    self.pl_reg_loss *= self.STYLEGAN.g_reg_interval/self.OPTIMIZATION.acml_steps
                     self.pl_reg_loss.backward()
+                    print("G_pl", self.pl_reg_loss.item())
                 self.OPTIMIZATION.g_optimizer.step()
-
             # if ema is True: update parameters of the Gen_ema in adaptive way
             if self.MODEL.apply_g_ema:
                 self.ema.update(current_step)

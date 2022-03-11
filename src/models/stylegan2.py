@@ -110,7 +110,7 @@ class FullyConnectedLayer(torch.nn.Module):
     ):
         super().__init__()
         self.activation = activation
-        self.weight = torch.nn.Parameter(torch.randn([out_features, in_features]) / lr_multiplier)
+        self.weight = torch.nn.Parameter(torch.ones([out_features, in_features]) / lr_multiplier)
         self.bias = torch.nn.Parameter(torch.full([out_features], np.float32(bias_init))) if bias else None
         self.weight_gain = lr_multiplier / np.sqrt(in_features)
         self.bias_gain = lr_multiplier
@@ -157,7 +157,7 @@ class Conv2dLayer(torch.nn.Module):
         self.act_gain = bias_act.activation_funcs[activation].def_gain
 
         memory_format = torch.channels_last if channels_last else torch.contiguous_format
-        weight = torch.randn([out_channels, in_channels, kernel_size, kernel_size]).to(memory_format=memory_format)
+        weight = torch.ones([out_channels, in_channels, kernel_size, kernel_size]).to(memory_format=memory_format)
         bias = torch.zeros([out_channels]) if bias else None
         if trainable:
             self.weight = torch.nn.Parameter(weight)
@@ -289,9 +289,9 @@ class SynthesisLayer(torch.nn.Module):
 
         self.affine = FullyConnectedLayer(w_dim, in_channels, bias_init=1)
         memory_format = torch.channels_last if channels_last else torch.contiguous_format
-        self.weight = torch.nn.Parameter(torch.randn([out_channels, in_channels, kernel_size, kernel_size]).to(memory_format=memory_format))
+        self.weight = torch.nn.Parameter(torch.ones([out_channels, in_channels, kernel_size, kernel_size]).to(memory_format=memory_format))
         if use_noise:
-            self.register_buffer("noise_const", torch.randn([resolution, resolution]))
+            self.register_buffer("noise_const", torch.ones([resolution, resolution]))
             self.noise_strength = torch.nn.Parameter(torch.zeros([]))
         self.bias = torch.nn.Parameter(torch.zeros([out_channels]))
 
@@ -303,7 +303,7 @@ class SynthesisLayer(torch.nn.Module):
 
         noise = None
         if self.use_noise and noise_mode == "random":
-            noise = torch.randn([x.shape[0], 1, self.resolution, self.resolution], device=x.device) * self.noise_strength
+            noise = torch.ones([x.shape[0], 1, self.resolution, self.resolution], device=x.device) * self.noise_strength
         if self.use_noise and noise_mode == "const":
             noise = self.noise_const * self.noise_strength
 
@@ -330,7 +330,7 @@ class ToRGBLayer(torch.nn.Module):
         self.conv_clamp = conv_clamp
         self.affine = FullyConnectedLayer(w_dim, in_channels, bias_init=1)
         memory_format = torch.channels_last if channels_last else torch.contiguous_format
-        self.weight = torch.nn.Parameter(torch.randn([out_channels, in_channels, kernel_size, kernel_size]).to(memory_format=memory_format))
+        self.weight = torch.nn.Parameter(torch.ones([out_channels, in_channels, kernel_size, kernel_size]).to(memory_format=memory_format))
         self.bias = torch.nn.Parameter(torch.zeros([out_channels]))
         self.weight_gain = 1 / np.sqrt(in_channels * (kernel_size**2))
 
@@ -372,7 +372,7 @@ class SynthesisBlock(torch.nn.Module):
         self.num_torgb = 0
 
         if in_channels == 0:
-            self.const = torch.nn.Parameter(torch.randn([out_channels, resolution, resolution]))
+            self.const = torch.nn.Parameter(torch.ones([out_channels, resolution, resolution]))
 
         if in_channels != 0:
             self.conv0 = SynthesisLayer(in_channels,
@@ -706,7 +706,7 @@ class DiscriminatorEpilogue(torch.nn.Module):
         self.mbstd = MinibatchStdLayer(group_size=mbstd_group_size, num_channels=mbstd_num_channels) if mbstd_num_channels > 0 else None
         self.conv = Conv2dLayer(in_channels + mbstd_num_channels, in_channels, kernel_size=3, activation=activation, conv_clamp=conv_clamp)
         self.fc = FullyConnectedLayer(in_channels * (resolution**2), in_channels, activation=activation)
-        # self.out = FullyConnectedLayer(in_channels, 1 if cmap_dim == 0 else cmap_dim)
+        self.out = FullyConnectedLayer(in_channels, 1 if cmap_dim == 0 else cmap_dim)
 
     def forward(self, x, img, force_fp32=False):
         misc.assert_shape(x, [None, self.in_channels, self.resolution, self.resolution])  # [NCHW]
@@ -726,7 +726,7 @@ class DiscriminatorEpilogue(torch.nn.Module):
             x = self.mbstd(x)
         x = self.conv(x)
         x = self.fc(x.flatten(1))
-        # x = self.out(x)
+        x = self.out(x)
 
         return x
 
@@ -793,15 +793,15 @@ class Discriminator(torch.nn.Module):
 
         self.b4 = DiscriminatorEpilogue(channels_dict[4], cmap_dim=self.cmap_dim, resolution=4, **epilogue_kwargs, **common_kwargs)
 
-       # linear layer for adversarial training
-        if self.d_cond_mtd == "MH":
-            self.linear1 = FullyConnectedLayer(channels_dict[4], 1 + self.num_classes, bias=True)
-        elif self.d_cond_mtd == "MD":
-            self.linear1 = FullyConnectedLayer(channels_dict[4], self.num_classes, bias=True)
-        elif self.d_cond_mtd == "SPD":
-            self.linear1 = FullyConnectedLayer(channels_dict[4], 1 if self.cmap_dim == 0 else self.cmap_dim, bias=True)
-        else:
-            self.linear1 = FullyConnectedLayer(channels_dict[4], 1, bias=True)
+    #    # linear layer for adversarial training
+    #     if self.d_cond_mtd == "MH":
+    #         self.linear1 = FullyConnectedLayer(channels_dict[4], 1 + self.num_classes, bias=True)
+    #     elif self.d_cond_mtd == "MD":
+    #         self.linear1 = FullyConnectedLayer(channels_dict[4], self.num_classes, bias=True)
+    #     elif self.d_cond_mtd == "SPD":
+    #         self.linear1 = FullyConnectedLayer(channels_dict[4], 1 if self.cmap_dim == 0 else self.cmap_dim, bias=True)
+    #     else:
+    #         self.linear1 = FullyConnectedLayer(channels_dict[4], 1, bias=True)
 
         # double num_classes for Auxiliary Discriminative Classifier
         if self.aux_cls_type == "ADC":
@@ -850,8 +850,8 @@ class Discriminator(torch.nn.Module):
         h = self.b4(x, img)
 
         # adversarial training
-        if self.d_cond_mtd != "SPD":
-            adv_output = torch.squeeze(self.linear1(h))
+        # if self.d_cond_mtd != "SPD":
+        #     adv_output = torch.squeeze(self.linear1(h))
 
         # make class labels odd (for fake) or even (for real) for ADC
         if self.aux_cls_type == "ADC":
@@ -868,6 +868,7 @@ class Discriminator(torch.nn.Module):
             info_conti_mu = self.info_conti_mu_linear(h)
             info_conti_var = torch.exp(self.info_conti_var_linear(h))
 
+        adv_output = h
         # class conditioning
         if self.d_cond_mtd == "AC":
             if self.normalize_d_embed:
@@ -878,7 +879,7 @@ class Discriminator(torch.nn.Module):
         elif self.d_cond_mtd == "PD":
             adv_output = adv_output + torch.sum(torch.mul(self.embedding(None, oh_label), h), 1)
         elif self.d_cond_mtd == "SPD":
-            embed = self.linear1(h)
+            embed = h
             cmap = self.mapping(None, oh_label)
             adv_output = (embed * cmap).sum(dim=1, keepdim=True) * (1 / np.sqrt(self.cmap_dim))
         elif self.d_cond_mtd in ["2C", "D2DCE"]:

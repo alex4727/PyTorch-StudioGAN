@@ -10,6 +10,7 @@ import json
 import os
 import random
 import warnings
+import numpy as np
 
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
@@ -70,7 +71,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
             # Allow PyTorch to internally use tf32 for matmul
             torch.backends.cuda.matmul.allow_tf32 = False
             # Allow PyTorch to internally use tf32 for convolutions
-            torch.backends.cudnn.alllow_tf32 = False
+            torch.backends.cudnn.allow_tf32 = False
 
     # -----------------------------------------------------------------------------
     # initialize all processes and fix seed of each process
@@ -329,6 +330,13 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
         loss_list_dict=loss_list_dict,
         metric_dict_during_train=metric_dict_during_train,
     )
+    torch.manual_seed(0)
+    torch.cuda.manual_seed(0)
+    torch.cuda.manual_seed_all(0) # if use multi-GPU
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(0)
+    random.seed(0)
 
     # -----------------------------------------------------------------------------
     # train GAN until "total_steps" generator updates

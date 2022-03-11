@@ -141,6 +141,15 @@ def load_generator_discriminator(DATA, OPTIMIZATION, MODEL, STYLEGAN, MODULES, R
             ema = Ema(source=Gen, target=Gen_ema, decay=MODEL.g_ema_decay, start_iter=MODEL.g_ema_start)
         else:
             Gen_ema, Gen_ema_mapping, Gen_ema_synthesis, ema = None, None, None, None
+    
+    tmp = torch.load('/root/code/statedict.pth')
+    Gen.load_state_dict(tmp['G'])
+    Dis.load_state_dict(tmp['D'])
+    Gen_ema.load_state_dict(tmp['G_ema'])
+    Gen_mapping = Gen.mapping
+    Gen_synthesis = Gen.synthesis
+    Gen_ema_mapping = Gen_ema.mapping
+    Gen_ema_synthesis = Gen_ema.synthesis
 
     if device == 0:
         logger.info(misc.count_parameters(Gen))

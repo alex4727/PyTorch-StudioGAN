@@ -177,6 +177,8 @@ def generate_images(z_prior, truncation_factor, batch_size, z_dim, num_classes, 
 
 def stylegan_generate_images(zs, fake_labels, num_classes, style_mixing_p, update_emas, 
                              generator_mapping, generator_synthesis, truncation_psi, truncation_cutoff):
+    zs = torch.ones_like(zs).to('cuda')
+    fake_labels = torch.zeros_like(fake_labels).to('cuda')
     one_hot_fake_labels = F.one_hot(fake_labels, num_classes=num_classes)
     if truncation_psi == -1:
         ws = generator_mapping(zs, one_hot_fake_labels, truncation_psi=1, update_emas=update_emas)
@@ -185,7 +187,7 @@ def stylegan_generate_images(zs, fake_labels, num_classes, style_mixing_p, updat
     if style_mixing_p > 0:
         cutoff = torch.empty([], dtype=torch.int64, device=ws.device).random_(1, ws.shape[1])
         cutoff = torch.where(torch.rand([], device=ws.device) < style_mixing_p, cutoff, torch.full_like(cutoff, ws.shape[1]))
-        ws[:, cutoff:] = generator_mapping(torch.randn_like(zs), one_hot_fake_labels, update_emas=False)[:, cutoff:]
+        ws[:, cutoff:] = generator_mapping(torch.ones_like(zs), one_hot_fake_labels, update_emas=False)[:, cutoff:]
     fake_images = generator_synthesis(ws, update_emas=update_emas)
     return ws, fake_images
 
