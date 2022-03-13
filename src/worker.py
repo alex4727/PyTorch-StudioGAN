@@ -166,6 +166,8 @@ class WORKER(object):
             self.num_eval = {"train": 50000, "valid": 10000}
         elif self.DATA.name == "ImageNet":
             self.num_eval = {"train": 50000, "valid": 50000}
+        elif self.DATA.name == "Baby_ImageNet":
+            self.num_eval = {"train": 50000, "valid": 10000}
         else:
             self.num_eval = {}
             if self.train_dataloader is not None:
@@ -722,7 +724,7 @@ class WORKER(object):
         save_dict = misc.accm_values_convert_dict(list_dict=self.loss_list_dict,
                                                   value_dict=loss_dict,
                                                   step=current_step + 1,
-                                                  interval=self.RUN.print_every)
+                                                  interval=self.RUN.print_freq)
         misc.save_dict_npy(directory=join(self.RUN.save_dir, "statistics", self.run_name),
                            name="losses",
                            dictionary=save_dict)
@@ -817,7 +819,7 @@ class WORKER(object):
             self.gen_ctlr.std_stat_counter += 1
 
         is_best, num_splits, nearest_k = False, 1, 5
-        is_acc = True if self.DATA.name == "ImageNet" else False
+        is_acc = True if "ImageNet" in self.DATA.name and "Tiny" not in self.DATA.name else False
         requires_grad = self.LOSS.apply_lo or self.RUN.langevin_sampling
         with torch.no_grad() if not requires_grad else misc.dummy_context_mgr() as ctx:
             misc.make_GAN_untrainable(self.Gen, self.Gen_ema, self.Dis)
@@ -841,6 +843,7 @@ class WORKER(object):
                                                                    is_stylegan=self.is_stylegan,
                                                                    generator_mapping=generator_mapping,
                                                                    generator_synthesis=generator_synthesis,
+                                                                   quantize=True,
                                                                    world_size=self.OPTIMIZATION.world_size,
                                                                    DDP=self.DDP,
                                                                    device=self.local_rank,
@@ -853,7 +856,8 @@ class WORKER(object):
                                                                  data_loader=self.eval_dataloader,
                                                                  num_features=self.num_eval[self.RUN.ref_dataset],
                                                                  split=num_splits,
-                                                                 is_acc=is_acc)
+                                                                 is_acc=is_acc,
+                                                                 is_torch_backbone=True if "torch" in self.RUN.eval_backbone else False)
                 if self.global_rank == 0:
                     self.logger.info("Inception score (Step: {step}, {num} generated images): {IS}".format(
                         step=step, num=str(self.num_eval[self.RUN.ref_dataset]), IS=kl_score))
@@ -923,7 +927,7 @@ class WORKER(object):
                     save_dict = misc.accm_values_convert_dict(list_dict=self.metric_dict_during_train,
                                                               value_dict=metric_dict,
                                                               step=step,
-                                                              interval=self.RUN.save_every)
+                                                              interval=self.RUN.save_freq)
                 else:
                     save_dict = misc.accm_values_convert_dict(list_dict=self.metric_dict_during_final_eval,
                                                               value_dict=metric_dict,
@@ -1067,8 +1071,10 @@ class WORKER(object):
             generator, generator_mapping, generator_synthesis = self.gen_ctlr.prepare_generator()
 
             res, mean, std = 224, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-            resizer = resize.build_resizer(mode=self.RUN.resize_fn, size=res)
-            trsf = transforms.Compose([transforms.ToTensor()])
+            resizer = resize.build_resizer(resizer=self.RUN.post_resizer,
+                                           backbone="ResNet50_torch",
+                                           size=res)
+            totensor = transforms.ToTensor()
             mean = torch.Tensor(mean).view(1, 3, 1, 1).to("cuda")
             std = torch.Tensor(std).view(1, 3, 1, 1).to("cuda")
 
@@ -1101,7 +1107,7 @@ class WORKER(object):
                                                                         cal_trsp_cost=False)
                 fake_anchor = torch.unsqueeze(fake_images[0], dim=0)
                 fake_anchor = ops.quantize_images(fake_anchor)
-                fake_anchor = ops.resize_images(fake_anchor, resizer, trsf, mean, std)
+                fake_anchor = ops.resize_images(fake_anchor, resizer, totensor, mean, std)
                 fake_anchor_embed = torch.squeeze(resnet50_conv(fake_anchor))
 
                 num_samples, target_sampler = sample.make_target_cls_sampler(dataset=dataset, target_class=c)
@@ -1116,7 +1122,7 @@ class WORKER(object):
                 for batch_idx in range(num_samples//batch_size):
                     real_images, real_labels = next(c_iter)
                     real_images = ops.quantize_images(real_images)
-                    real_images = ops.resize_images(real_images, resizer, trsf, mean, std)
+                    real_images = ops.resize_images(real_images, resizer, totensor, mean, std)
                     real_embed = torch.squeeze(resnet50_conv(real_images))
                     if batch_idx == 0:
                         distances = torch.square(real_embed - fake_anchor_embed).mean(dim=1).detach().cpu().numpy()
@@ -1432,6 +1438,7 @@ class WORKER(object):
                                                     is_stylegan=self.is_stylegan,
                                                     generator_mapping=generator_mapping,
                                                     generator_synthesis=generator_synthesis,
+                                                    quantize=True,
                                                     world_size=self.OPTIMIZATION.world_size,
                                                     DDP=self.DDP,
                                                     device=self.local_rank,

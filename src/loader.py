@@ -5,6 +5,7 @@
 # src/loader.py
 
 from os.path import dirname, abspath, exists, join
+import sys
 import glob
 import json
 import os
@@ -114,6 +115,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
                                  train=True,
                                  crop_long_edge=cfgs.PRE.crop_long_edge,
                                  resize_size=cfgs.PRE.resize_size,
+                                 resizer=None if hdf5_path is not None else cfgs.RUN.pre_resizer,
                                  random_flip=cfgs.PRE.apply_rflip,
                                  normalize=True,
                                  hdf5_path=hdf5_path,
@@ -123,7 +125,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
     else:
         train_dataset = None
 
-    if len(cfgs.RUN.eval_metrics) + +cfgs.RUN.save_real_images + cfgs.RUN.k_nearest_neighbor + \
+    if len(cfgs.RUN.eval_metrics) + cfgs.RUN.save_real_images + cfgs.RUN.k_nearest_neighbor + \
             cfgs.RUN.frequency_analysis + cfgs.RUN.tsne_analysis:
         if local_rank == 0:
             logger.info("Load {name} {ref} dataset.".format(name=cfgs.DATA.name, ref=cfgs.RUN.ref_dataset))
@@ -132,6 +134,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
                                 train=True if cfgs.RUN.ref_dataset == "train" else False,
                                 crop_long_edge=False if cfgs.DATA.name in cfgs.MISC.no_proc_data else True,
                                 resize_size=None if cfgs.DATA.name in cfgs.MISC.no_proc_data else cfgs.DATA.img_size,
+                                resizer=cfgs.RUN.pre_resizer,
                                 random_flip=False,
                                 hdf5_path=None,
                                 normalize=True,
@@ -278,7 +281,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
     # -----------------------------------------------------------------------------
     if len(cfgs.RUN.eval_metrics) or cfgs.RUN.intra_class_fid:
         eval_model = pp.LoadEvalModel(eval_backbone=cfgs.RUN.eval_backbone,
-                                      resize_fn=cfgs.RUN.resize_fn,
+                                      post_resizer=cfgs.RUN.post_resizer,
                                       world_size=cfgs.OPTIMIZATION.world_size,
                                       distributed_data_parallel=cfgs.RUN.distributed_data_parallel,
                                       device=local_rank)
@@ -291,7 +294,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
                                        logger=logger,
                                        device=local_rank)
 
-    if cfgs.RUN.is_ref_dataset:
+    if cfgs.RUN.calc_is_ref_dataset:
         pp.calculate_ins(data_loader=eval_dataloader,
                          eval_model=eval_model,
                          quantize=True,
@@ -347,7 +350,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
                 gen_acml_loss = worker.train_generator(current_step=step)
                 real_cond_loss, dis_acml_loss = worker.train_discriminator(current_step=step)
 
-            if global_rank == 0 and (step + 1) % cfgs.RUN.print_every == 0:
+            if global_rank == 0 and (step + 1) % cfgs.RUN.print_freq == 0:
 
                 worker.log_train_statistics(current_step=step,
                                             real_cond_loss=real_cond_loss,
@@ -362,7 +365,7 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
                                                   topk_gamma=cfgs.LOSS.topk_gamma,
                                                   sup_k=int(cfgs.OPTIMIZATION.batch_size * cfgs.LOSS.topk_nu))
 
-            if step % cfgs.RUN.save_every == 0:
+            if step % cfgs.RUN.save_freq == 0:
                 # visuailize fake images
                 if global_rank == 0:
                    worker.visualize_fake_images(num_cols=num_cols, current_step=step)
@@ -385,7 +388,6 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
     # -----------------------------------------------------------------------------
     # re-evaluate the best GAN and conduct ordered analyses
     # -----------------------------------------------------------------------------
-    print("")
     worker.training, worker.epoch_counter = False, epoch
     worker.gen_ctlr.standing_statistics = cfgs.RUN.standing_statistics
     worker.gen_ctlr.standing_max_batch = cfgs.RUN.standing_max_batch
