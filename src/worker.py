@@ -162,9 +162,8 @@ class WORKER(object):
             self.num_eval = {"train": 50000, "test": 10000}
         else:
             self.num_eval = {}
-            if self.train_dataloader is not None:
-                self.num_eval["train"] = len(self.train_dataloader.dataset)
             if self.eval_dataloader is not None:
+                self.num_eval["train"] = len(self.eval_dataloader.dataset)
                 self.num_eval["test"] = len(self.eval_dataloader.dataset)
                 self.num_eval["valid"] = len(self.eval_dataloader.dataset)
 
