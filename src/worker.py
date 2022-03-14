@@ -171,6 +171,7 @@ class WORKER(object):
         self.gen_ctlr = misc.GeneratorController(generator=self.Gen_ema if self.MODEL.apply_g_ema else self.Gen,
                                                  generator_mapping=self.Gen_ema_mapping,
                                                  generator_synthesis=self.Gen_ema_synthesis,
+                                                 discriminator=self.Dis,
                                                  batch_statistics=self.RUN.batch_statistics,
                                                  standing_statistics=False,
                                                  standing_max_batch="N/A",

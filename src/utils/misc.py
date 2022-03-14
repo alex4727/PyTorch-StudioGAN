@@ -61,11 +61,12 @@ class SaveOutput:
 
 
 class GeneratorController(object):
-    def __init__(self, generator, generator_mapping, generator_synthesis, batch_statistics, standing_statistics,
+    def __init__(self, generator, generator_mapping, generator_synthesis, discriminator, batch_statistics, standing_statistics,
                  standing_max_batch, standing_step, cfgs, device, global_rank, logger, std_stat_counter):
         self.generator = generator
         self.generator_mapping = generator_mapping
         self.generator_synthesis = generator_synthesis
+        self.discriminator = discriminator
         self.batch_statistics = batch_statistics
         self.standing_statistics = standing_statistics
         self.standing_max_batch = standing_max_batch
@@ -84,6 +85,7 @@ class GeneratorController(object):
             else:
                 self.generator.train()
                 apply_standing_statistics(generator=self.generator,
+                                          discriminator = self.discriminator,
                                           standing_max_batch=self.standing_max_batch,
                                           standing_step=self.standing_step,
                                           DATA=self.cfgs.DATA,
@@ -298,7 +300,7 @@ def calculate_all_sn(model, prefix):
     return sigmas
 
 
-def apply_standing_statistics(generator, standing_max_batch, standing_step, DATA, MODEL, LOSS, OPTIMIZATION, RUN, STYLEGAN,
+def apply_standing_statistics(generator, discriminator, standing_max_batch, standing_step, DATA, MODEL, LOSS, OPTIMIZATION, RUN, STYLEGAN,
                               device, global_rank, logger):
     generator.train()
     generator.apply(reset_bn_statistics)
@@ -318,7 +320,7 @@ def apply_standing_statistics(generator, standing_max_batch, standing_step, DATA
                                                                    y_sampler="totally_random",
                                                                    radius="N/A",
                                                                    generator=generator,
-                                                                   discriminator=None,
+                                                                   discriminator=discriminator,
                                                                    is_train=True,
                                                                    LOSS=LOSS,
                                                                    RUN=RUN,
