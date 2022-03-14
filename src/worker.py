@@ -158,16 +158,8 @@ class WORKER(object):
         else:
             pass
 
-        if self.DATA.name == "CIFAR10":
+        if self.DATA.name in ["CIFAR10", "CIFAR100", "Tiny_ImageNet", "ImageNet", "Baby_ImageNet", "Papa_ImageNet", "Grandpa_ImageNet"]:
             self.num_eval = {"train": 50000, "test": 10000}
-        elif self.DATA.name == "CIFAR100":
-            self.num_eval = {"train": 50000, "test": 10000}
-        elif self.DATA.name == "Tiny_ImageNet":
-            self.num_eval = {"train": 50000, "valid": 10000}
-        elif self.DATA.name == "ImageNet":
-            self.num_eval = {"train": 50000, "valid": 50000}
-        elif self.DATA.name == "Baby_ImageNet":
-            self.num_eval = {"train": 50000, "valid": 10000}
         else:
             self.num_eval = {}
             if self.train_dataloader is not None:
