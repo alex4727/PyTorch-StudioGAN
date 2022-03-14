@@ -181,7 +181,7 @@ if __name__ == "__main__":
                                                 run_name,
                                                 hdf5_path),
                                           nprocs=gpus_per_node,
-                                          join=True)
+                                          join=False)
         ctx.join(180)
         for process in ctx.processes:
             process.kill()
