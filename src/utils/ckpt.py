@@ -142,13 +142,13 @@ def load_best_model(ckpt_dir, Gen, Dis, apply_g_ema, Gen_ema, ema):
               load_misc=False,
               is_freezeD=False)
 
-    _, _, _, _, _, _, best_step, _, _ = load_ckpt(model=Dis,
-                                                  optimizer=None,
-                                                  ckpt_path=Dis_ckpt_path,
-                                                  load_model=True,
-                                                  load_opt=False,
-                                                  load_misc=True,
-                                                  is_freezeD=False)
+    _, _, _, _, _, _, best_step, _, _= load_ckpt(model=Dis,
+                                                 optimizer=None,
+                                                 ckpt_path=Dis_ckpt_path,
+                                                 load_model=True,
+                                                 load_opt=False,
+                                                 load_misc=True,
+                                                 is_freezeD=False)
 
     if apply_g_ema:
         Gen_ema_ckpt_path = glob.glob(join(ckpt_dir, "model=G_ema-best-weights-step*.pth"))[0]

@@ -848,9 +848,10 @@ class Configurations(object):
 
         assert self.OPTIMIZATION.total_steps % self.RUN.save_freq == 0, "total_steps should be divided by save_freq."
 
-        assert self.RUN.data_dir is not None or self.RUN.save_fake_images, "Please specify data_dir if dataset is prepared. \
-            \nIn the case of CIFAR10 or CIFAR100, just specify the directory where you want \
-            dataset to be downloaded."
+        assert self.RUN.eval_backbone in ["InceptionV3_tf", "InceptionV3_torch", "ResNet50_torch", "SwAV_torch", "DINO_torch", "Swin-T_torch"], \
+            "eval_backbone should be in [InceptionV3_tf, InceptionV3_torch, ResNet50_torch, SwAV_torch, DINO_torch, Swin-T_torch]"
+
+        assert self.RUN.post_resizer in ["legacy", "clean", "tailored"], "resizing flag should be in [legacy, clean, tailored]"
 
         assert self.RUN.eval_backbone in ["InceptionV3_tf", "InceptionV3_torch", "ResNet50_torch", "SwAV_torch", "DINO_torch"], \
             "resizing flag should be in [InceptionV3_tf, InceptionV3_torch, ResNet50_torch, SwAV_torch, DINO_torch]"

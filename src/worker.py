@@ -956,7 +956,7 @@ class WORKER(object):
             "aa_p": self.aa_p,
             "best_step": self.best_step,
             "best_fid": self.best_fid,
-            "best_fid_ckpt": self.RUN.ckpt_dir
+            "best_fid_ckpt": self.RUN.ckpt_dir,
         }
 
         if self.Gen_ema is not None:
