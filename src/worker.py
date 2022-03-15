@@ -158,8 +158,12 @@ class WORKER(object):
         else:
             pass
 
-        if self.DATA.name in ["CIFAR10", "CIFAR100", "Tiny_ImageNet", "ImageNet", "Baby_ImageNet", "Papa_ImageNet", "Grandpa_ImageNet"]:
+        if self.DATA.name in ["CIFAR10", "CIFAR100"]:
             self.num_eval = {"train": 50000, "test": 10000}
+        elif self.DATA.name == ["Tiny_ImageNet"]:
+            self.num_eval = {"train": 50000, "valid": 10000}
+        elif self.DATA.name ==  "ImageNet":
+            self.num_eval = {"train": 50000, "valid": 50000}
         else:
             self.num_eval = {}
             if self.eval_dataloader is not None:
@@ -930,7 +934,7 @@ class WORKER(object):
                                        name="metrics",
                                        dictionary=save_dict)
                     
-            with open("./eval_pickles/"+self.run_name + "-" + self.RUN.eval_backbone + ".pickle", "wb") as f:
+            with open("./eval_pickles/"+self.run_name + "-" + self.RUN.eval_backbone + "-" +self.RUN.ref_dataset +".pickle", "wb") as f:
                 pickle.dump(metric_dict, f)
         misc.make_GAN_trainable(self.Gen, self.Gen_ema, self.Dis)
         return is_best

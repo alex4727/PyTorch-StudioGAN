@@ -853,11 +853,6 @@ class Configurations(object):
 
         assert self.RUN.post_resizer in ["legacy", "clean", "tailored"], "resizing flag should be in [legacy, clean, tailored]"
 
-        assert self.RUN.eval_backbone in ["InceptionV3_tf", "InceptionV3_torch", "ResNet50_torch", "SwAV_torch", "DINO_torch"], \
-            "resizing flag should be in [InceptionV3_tf, InceptionV3_torch, ResNet50_torch, SwAV_torch, DINO_torch]"
-
-        assert self.RUN.post_resizer in ["legacy", "clean", "tailored"], "resizing flag should be in [logacy, clean, tailored]"
-
         assert self.RUN.batch_statistics*self.RUN.standing_statistics == 0, \
             "You can't turn on batch_statistics and standing_statistics simultaneously."
 
