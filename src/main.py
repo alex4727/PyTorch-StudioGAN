@@ -15,7 +15,6 @@ import tempfile
 from torch.multiprocessing import Process
 import torch
 import torch.multiprocessing as mp
-
 import config
 import loader
 import utils.hdf5 as hdf5
@@ -182,9 +181,8 @@ if __name__ == "__main__":
                                                 hdf5_path),
                                           nprocs=gpus_per_node,
                                           join=False)
-        ctx.join(180)
-        for process in ctx.processes:
-            process.kill()
+        ctx.join()
+
     else:
         loader.load_worker(local_rank=rank,
                            cfgs=cfgs,

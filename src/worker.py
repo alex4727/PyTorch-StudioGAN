@@ -930,7 +930,7 @@ class WORKER(object):
                                        name="metrics",
                                        dictionary=save_dict)
                     
-            with open("./eval_pickles/"+self.run_name+".pickle", "wb") as f:
+            with open("./eval_pickles/"+self.run_name + "-" + self.RUN.eval_backbone + ".pickle", "wb") as f:
                 pickle.dump(metric_dict, f)
         misc.make_GAN_trainable(self.Gen, self.Gen_ema, self.Dis)
         return is_best
