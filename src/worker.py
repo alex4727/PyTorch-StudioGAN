@@ -1467,7 +1467,7 @@ class WORKER(object):
         if self.global_rank == 0 and self.logger:
             self.logger.info("Average iFID score: {iFID}".format(iFID=sum(fids, 0.0) / len(fids)))
         with open("./eval_pickles/"+self.run_name + "-" + self.RUN.eval_backbone + "-train-ifid" +".pickle", "wb") as f:
-            pickle.dump(metric_dict, f)
+            pickle.dump(fids, f)
         misc.make_GAN_trainable(self.Gen, self.Gen_ema, self.Dis)
 
     # -----------------------------------------------------------------------------
