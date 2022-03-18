@@ -170,7 +170,6 @@ def load_configs_initialize_training():
 
 if __name__ == "__main__":
     cfgs, gpus_per_node, run_name, hdf5_path, rank = load_configs_initialize_training()
-    torch.set_num_threads(12)
     if cfgs.RUN.distributed_data_parallel and cfgs.OPTIMIZATION.world_size > 1:
         mp.set_start_method("spawn", force=True)
         print("Train the models through DistributedDataParallel (DDP) mode.")
