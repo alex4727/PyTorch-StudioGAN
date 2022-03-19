@@ -30,7 +30,7 @@ OPTIMIZATION:
   d_first: False
   g_updates_per_step: 1
   d_updates_per_step: 1
-  total_steps: 781250
+  total_steps: 800000
 AUG:
   apply_ada: True
   ada_aug_type: "bgc"

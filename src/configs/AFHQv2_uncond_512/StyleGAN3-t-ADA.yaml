@@ -22,7 +22,6 @@ LOSS:
 OPTIMIZATION:
   # These values will be slightly changed if lazy regularization is applied.
   batch_size: 32
-  acml_steps: 1
   g_lr: 0.0025
   d_lr: 0.002
   beta1: 0
@@ -30,7 +29,7 @@ OPTIMIZATION:
   d_first: False
   g_updates_per_step: 1
   d_updates_per_step: 1
-  total_steps: 781250
+  total_steps: 800000
 AUG:
   apply_ada: True
   ada_aug_type: "bgc"
