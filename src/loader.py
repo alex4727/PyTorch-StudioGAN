@@ -11,7 +11,7 @@ import json
 import os
 import random
 import warnings
-import wandb 
+import wandb
 
 from torch.backends import cudnn
 from torch.utils.data import DataLoader
@@ -43,8 +43,9 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
     step, epoch, topk, best_step, best_fid, best_ckpt_path, is_best = \
         0, 0, cfgs.OPTIMIZATION.batch_size, 0, None, None, False
     aa_p = cfgs.AUG.ada_initial_augment_p if cfgs.AUG.ada_initial_augment_p != "N/A" else cfgs.AUG.apa_initial_augment_p
-    mu, sigma, eval_model, num_rows, num_cols = None, None, None, 10, 8
+    mu, sigma, real_feats, eval_model, num_rows, num_cols = None, None, None, None, 10, 8
     loss_list_dict = {"gen_loss": [], "dis_loss": [], "cls_loss": []}
+    num_eval = {}
     metric_dict_during_train = {}
     if "none" in cfgs.RUN.eval_metrics:
         cfgs.RUN.eval_metrics = []
@@ -280,6 +281,12 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
     # -----------------------------------------------------------------------------
     # load a pre-trained network (InceptionV3 or ResNet50 trained using SwAV)
     # -----------------------------------------------------------------------------
+    if cfgs.DATA.name ==  "ImageNet":
+        num_eval = {"train": 50000, "valid": 50000}
+    else:
+        if eval_dataloader is not None:
+            num_eval[cfgs.RUN.ref_dataset] = len(eval_dataloader.dataset)
+
     if len(cfgs.RUN.eval_metrics) or cfgs.RUN.intra_class_fid:
         eval_model = pp.LoadEvalModel(eval_backbone=cfgs.RUN.eval_backbone,
                                       post_resizer=cfgs.RUN.post_resizer,
@@ -294,6 +301,15 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
                                        cfgs=cfgs,
                                        logger=logger,
                                        device=local_rank)
+
+    if "prdc" in cfgs.RUN.eval_metrics:
+        real_feats = pp.prepare_real_feats(data_loader=eval_dataloader,
+                                            eval_model=eval_model,
+                                            num_feats=num_eval[cfgs.RUN.ref_dataset],
+                                            quantize=True,
+                                            cfgs=cfgs,
+                                            logger=logger,
+                                            device=local_rank)
 
     if cfgs.RUN.calc_is_ref_dataset:
         pp.calculate_ins(data_loader=eval_dataloader,
@@ -325,11 +341,13 @@ def load_worker(local_rank, cfgs, gpus_per_node, run_name, hdf5_path):
         local_rank=local_rank,
         mu=mu,
         sigma=sigma,
+        real_feats=real_feats,
         logger=logger,
         aa_p=aa_p,
         best_step=best_step,
         best_fid=best_fid,
         best_ckpt_path=best_ckpt_path,
+        num_eval=num_eval,
         loss_list_dict=loss_list_dict,
         metric_dict_during_train=metric_dict_during_train,
     )
