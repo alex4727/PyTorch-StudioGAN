@@ -16,3 +16,5 @@ test/
 *.pickle
 *.txt
 *.sh
+scripts/
+
