@@ -57,8 +57,8 @@ LOG_FORMAT = ("Step: {step:>6} "
 
 class WORKER(object):
     def __init__(self, cfgs, run_name, Gen, Gen_mapping, Gen_synthesis, Dis, Gen_ema, Gen_ema_mapping, Gen_ema_synthesis,
-                 ema, eval_model, train_dataloader, eval_dataloader, global_rank, local_rank, mu, sigma, logger, aa_p,
-                 best_step, best_fid, best_ckpt_path, loss_list_dict, metric_dict_during_train):
+                 ema, eval_model, train_dataloader, eval_dataloader,global_rank, local_rank, mu, sigma, real_feats,  logger, aa_p,
+                 best_step, best_fid, best_ckpt_path, num_eval, loss_list_dict, metric_dict_during_train):
         self.cfgs = cfgs
         self.run_name = run_name
         self.Gen = Gen
@@ -76,11 +76,13 @@ class WORKER(object):
         self.local_rank = local_rank
         self.mu = mu
         self.sigma = sigma
+        self.real_feats = real_feats
         self.logger = logger
         self.aa_p = aa_p
         self.best_step = best_step
         self.best_fid = best_fid
         self.best_ckpt_path = best_ckpt_path
+        self.num_eval = num_eval
         self.loss_list_dict = loss_list_dict
         self.metric_dict_during_train = metric_dict_during_train
         self.metric_dict_during_final_eval = {}
@@ -892,7 +894,8 @@ class WORKER(object):
                             step=self.best_step, type=self.RUN.ref_dataset, FID=self.best_fid))
 
             if "prdc" in metrics:
-                prc, rec, dns, cvg = prdc.calculate_pr_dc(fake_feats=fake_feats,
+                prc, rec, dns, cvg = prdc.calculate_pr_dc(real_feats=self.real_feats,
+                                                          fake_feats=fake_feats,
                                                           data_loader=self.eval_dataloader,
                                                           eval_model=self.eval_model,
                                                           num_generate=self.num_eval[self.RUN.ref_dataset],
@@ -933,7 +936,7 @@ class WORKER(object):
                     misc.save_dict_npy(directory=join(self.RUN.save_dir, "statistics", self.run_name, "train" if training else "eval"),
                                        name="metrics",
                                        dictionary=save_dict)
-                    
+
                 with open("./eval_pickles/"+self.run_name + "-" + self.RUN.eval_backbone + "-" +self.RUN.ref_dataset +".pickle", "wb") as f:
                     pickle.dump(metric_dict, f)
         misc.make_GAN_trainable(self.Gen, self.Gen_ema, self.Dis)
