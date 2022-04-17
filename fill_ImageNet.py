@@ -102,11 +102,13 @@ def get_pickle_names(col):
 
 
 
-wb = openpyxl.load_workbook("Taxonomy_experiments_43.xlsx")
+wb = openpyxl.load_workbook("416.xlsx")
 pickles_path = "./eval_pickles/"
 pickles_list = os.listdir(pickles_path)
 # ws_list = ["Efficient-AFHQ-V2-256"]
-ws_list = ["ImageNet_tailored", "Baby_ImageNet_tailored", "Papa_ImageNet_tailored", "Grandpa_ImageNet_tailored"]
+# ws_list = ["ImageNet_tailored", "Baby_ImageNet_tailored", "Papa_ImageNet_tailored", "Grandpa_ImageNet_tailored"]
+ws_list = ["ImageNet_tailored"]
+
 IS_start_row = 10
 SwAV_start_row = 42
 SwinT_start_row = 74
@@ -199,4 +201,4 @@ for ws in ws_list:
                 if col[128+27*idx].value != None:
                     col[133+27*idx].value = f"{col[133+27*idx].value} / {sorted(backbone).index(col[128+27*idx].value)+1}"
 
-wb.save("Taxonomy_experiments_43.xlsx")
+wb.save("416.xlsx")
