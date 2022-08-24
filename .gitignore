@@ -12,3 +12,4 @@ wandb/
 test/
 *.csv
 *.npy
+*.sh

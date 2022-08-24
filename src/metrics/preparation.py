@@ -31,7 +31,7 @@ import utils.ops as ops
 import utils.resize as resize
 
 model_versions = {"InceptionV3_torch": "pytorch/vision:v0.10.0",
-                  "ResNet_torch": "pytorch/vision:v0.10.0",
+                  "ResNet50_torch": "pytorch/vision:v0.10.0",
                   "SwAV_torch": "facebookresearch/swav:main"}
 model_names = {"InceptionV3_torch": "inception_v3",
                "ResNet50_torch": "resnet50",

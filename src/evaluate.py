@@ -7,6 +7,8 @@
 from argparse import ArgumentParser
 import os
 import random
+from tqdm import tqdm
+import json
 
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
@@ -22,6 +24,7 @@ import numpy as np
 import pickle
 
 import utils.misc as misc
+import utils.sample as sample
 import metrics.preparation as pp
 import metrics.features as features
 import metrics.ins as ins
@@ -49,12 +52,14 @@ class CenterCropLongEdge(object):
     def __repr__(self):
         return self.__class__.__name__
 
-
 class Dataset_(Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, resize=-1):
         super(Dataset_, self).__init__()
         self.data_dir = data_dir
-        self.trsf_list = [transforms.PILToTensor()]
+        self.trsf_list = []
+        if resize != -1:
+            self.trsf_list += [CenterCropLongEdge(), transforms.Resize(resize, interpolation=resizer_collection["lanczos"])]
+        self.trsf_list += [transforms.PILToTensor()]
         self.trsf = transforms.Compose(self.trsf_list)
 
         self.load_dataset()
@@ -86,6 +91,8 @@ def prepare_evaluation():
                         If not specified, StudioGAN will automatically extract moments using the whole dset1.")
     parser.add_argument("--dset2", type=str, default=None, help="specify the directory of the folder that contains dset2 images (fake).")
     parser.add_argument("--batch_size", default=256, type=int, help="batch_size for evaluation")
+    parser.add_argument("--dset1_resize", type=int, default=-1)
+    parser.add_argument("--dset2_resize", type=int, default=-1)
 
     parser.add_argument("--seed", type=int, default=-1, help="seed for generating random numbers")
     parser.add_argument("-DDP", "--distributed_data_parallel", action="store_true")
@@ -132,13 +139,13 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
     # load dset1 and dset1.
     # -----------------------------------------------------------------------------
     load_dset1 = ("fid" in args.eval_metrics and args.dset1_moments == None) or \
-        ("prdc" in args.eval_metrics and args.dset1_feats == None)
+        ("prdc" in args.eval_metrics and args.dset1_feats == None) or ("ifid" in args.eval_metrics)
     if load_dset1:
-        dset1 = Dataset_(data_dir=args.dset1)
+        dset1 = Dataset_(data_dir=args.dset1, resize=args.dset1_resize)
         if local_rank == 0:
             print("Size of dset1: {dataset_size}".format(dataset_size=len(dset1)))
 
-    dset2 = Dataset_(data_dir=args.dset2)
+    dset2 = Dataset_(data_dir=args.dset2, resize=args.dset2_resize)
     if local_rank == 0:
         print("Size of dset2: {dataset_size}".format(dataset_size=len(dset2)))
 
@@ -166,22 +173,23 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
     # -----------------------------------------------------------------------------
     # define dataloaders for dset1 and dset2.
     # -----------------------------------------------------------------------------
-    if load_dset1:
-        dset1_dataloader = DataLoader(dataset=dset1,
-                                      batch_size=batch_size,
-                                      shuffle=False,
-                                      pin_memory=True,
-                                      num_workers=args.num_workers,
-                                      sampler=dset1_sampler,
-                                      drop_last=False)
+    if args.eval_metrics != ["ifid"]:
+        if load_dset1:
+            dset1_dataloader = DataLoader(dataset=dset1,
+                                        batch_size=batch_size,
+                                        shuffle=False,
+                                        pin_memory=True,
+                                        num_workers=args.num_workers,
+                                        sampler=dset1_sampler,
+                                        drop_last=False)
 
-    dset2_dataloader = DataLoader(dataset=dset2,
-                                  batch_size=batch_size,
-                                  shuffle=False,
-                                  pin_memory=True,
-                                  num_workers=args.num_workers,
-                                  sampler=dset2_sampler,
-                                  drop_last=False)
+        dset2_dataloader = DataLoader(dataset=dset2,
+                                    batch_size=batch_size,
+                                    shuffle=False,
+                                    pin_memory=True,
+                                    num_workers=args.num_workers,
+                                    sampler=dset2_sampler,
+                                    drop_last=False)
 
     # -----------------------------------------------------------------------------
     # load a pre-trained network (InceptionV3 or ResNet50 trained using SwAV).
@@ -195,26 +203,27 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
     # -----------------------------------------------------------------------------
     # extract features, probabilities, and labels to calculate metrics.
     # -----------------------------------------------------------------------------
-    if load_dset1:
-        dset1_feats, dset1_probs, dset1_labels = features.sample_images_from_loader_and_stack_features(
-                                          dataloader=dset1_dataloader,
-                                          eval_model=eval_model,
-                                          batch_size=batch_size,
-                                          quantize=False,
-                                          world_size=world_size,
-                                          DDP=args.distributed_data_parallel,
-                                          device=local_rank,
-                                          disable_tqdm=local_rank != 0)
+    if args.eval_metrics != ["ifid"]:
+        if load_dset1:
+            dset1_feats, dset1_probs, dset1_labels = features.sample_images_from_loader_and_stack_features(
+                                            dataloader=dset1_dataloader,
+                                            eval_model=eval_model,
+                                            batch_size=batch_size,
+                                            quantize=False,
+                                            world_size=world_size,
+                                            DDP=args.distributed_data_parallel,
+                                            device=local_rank,
+                                            disable_tqdm=local_rank != 0)
 
-    dset2_feats, dset2_probs, dset2_labels = features.sample_images_from_loader_and_stack_features(
-                                      dataloader=dset2_dataloader,
-                                      eval_model=eval_model,
-                                      batch_size=batch_size,
-                                      quantize=False,
-                                      world_size=world_size,
-                                      DDP=args.distributed_data_parallel,
-                                      device=local_rank,
-                                      disable_tqdm=local_rank != 0)
+        dset2_feats, dset2_probs, dset2_labels = features.sample_images_from_loader_and_stack_features(
+                                        dataloader=dset2_dataloader,
+                                        eval_model=eval_model,
+                                        batch_size=batch_size,
+                                        quantize=False,
+                                        world_size=world_size,
+                                        DDP=args.distributed_data_parallel,
+                                        device=local_rank,
+                                        disable_tqdm=local_rank != 0)
 
     # -----------------------------------------------------------------------------
     # calculate metrics.
@@ -265,6 +274,71 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
                 print("FID between pre-calculated dset1 moments and dset2 (dset2: {num2} images): {fid}".\
                       format(num2=str(len(dset2)), fid=fid_score))
 
+    if "ifid" in args.eval_metrics:
+        intra_class_fids = {}
+
+        with open("./src/utils/pytorch_imagenet_folder_label_pairs.json", "r") as f:
+            ImageNet_folder_label_dict = json.load(f)
+        ImageNet_label_folder_dict = {v: k for k, v in ImageNet_folder_label_dict.items()}
+        label_table = open("./src/utils/tf_imagenet_folder_label_pairs.txt", 'r')
+        ImageNet_folder_cls_dict = {}
+        while True:
+            line = label_table.readline()
+            if not line: break
+            folder = line.split(' ')[0]
+            cls_name = line.split(' ')[2].replace("\n", "")
+            ImageNet_folder_cls_dict[folder] = cls_name
+        
+        with torch.no_grad():
+            for c in tqdm(range(len(dset1.data.classes))):
+                num_samples_1, target_sampler_1 = sample.make_target_cls_sampler(dataset=dset1, target_class=c)
+                num_samples_2, target_sampler_2 = sample.make_target_cls_sampler(dataset=dset2, target_class=c)
+                dset1_dataloader = DataLoader(dataset=dset1,
+                                            batch_size=batch_size,
+                                            shuffle=False,
+                                            pin_memory=True,
+                                            num_workers=args.num_workers,
+                                            sampler=target_sampler_1,
+                                            drop_last=False)
+                dset2_dataloader = DataLoader(dataset=dset2,
+                                            batch_size=batch_size,
+                                            shuffle=False,
+                                            pin_memory=True,
+                                            num_workers=args.num_workers,
+                                            sampler=target_sampler_2,
+                                            drop_last=False)
+                dset1_feats, dset1_probs, dset1_labels = features.sample_images_from_loader_and_stack_features(
+                                                dataloader=dset1_dataloader,
+                                                eval_model=eval_model,
+                                                batch_size=batch_size,
+                                                quantize=False,
+                                                world_size=world_size,
+                                                DDP=args.distributed_data_parallel,
+                                                device=local_rank,
+                                                disable_tqdm=True)
+                dset2_feats, dset2_probs, dset2_labels = features.sample_images_from_loader_and_stack_features(
+                                                dataloader=dset2_dataloader,
+                                                eval_model=eval_model,
+                                                batch_size=batch_size,
+                                                quantize=False,
+                                                world_size=world_size,
+                                                DDP=args.distributed_data_parallel,
+                                                device=local_rank,
+                                                disable_tqdm=True)
+                mu1 = np.mean(dset1_feats.detach().cpu().numpy().astype(np.float64)[:len(dset1)], axis=0)
+                sigma1 = np.cov(dset1_feats.detach().cpu().numpy().astype(np.float64)[:len(dset1)], rowvar=False)
+                mu2 = np.mean(dset2_feats.detach().cpu().numpy().astype(np.float64)[:len(dset2)], axis=0)
+                sigma2 = np.cov(dset2_feats.detach().cpu().numpy().astype(np.float64)[:len(dset2)], rowvar=False)
+                fid_score = fid.frechet_inception_distance(mu1, sigma1, mu2, sigma2)
+                folder = ImageNet_label_folder_dict[c]
+                class_name = ImageNet_folder_cls_dict[folder]
+
+                intra_class_fids[class_name] = fid_score
+
+        with open(f"intra_class_fids_{args.eval_backbone}.json", "w") as f:
+            json.dump(intra_class_fids, f)
+
+
     if "prdc" in args.eval_metrics:
         nearest_k = 5
         if args.dset1_feats is None:
@@ -286,7 +360,9 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
                 format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), dns=dns))
             print("Coverage between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {cvg}".\
                 format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), cvg=cvg))
-
+    
+    with open(f"./results/{args.dset1.split('/')[-2]}_{args.dset2.split('/')[-2]}.json", "w") as f:
+        json.dump(metric_dict, f)
 
 if __name__ == "__main__":
     args, world_size, gpus_per_node, rank = prepare_evaluation()
