@@ -249,7 +249,7 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
                                                                is_acc=False,
                                                                is_torch_backbone=True if "torch" in args.eval_backbone else False)
         if local_rank == 0:
-            metric_dict.update({"IS": dset2_kl_score, "Top1_acc": dset2_top1, "Top5_acc": dset2_top5})
+            metric_dict.update({"IS": dset2_kl_score.tolist(), "Top1_acc": dset2_top1, "Top5_acc": dset2_top5})
             if load_dset1:
                 print("Inception score of dset1 ({num} images): {IS}".format(num=str(len(dset1)), IS=dset1_kl_score))
             print("Inception score of dset2 ({num} images): {IS}".format(num=str(len(dset2)), IS=dset2_kl_score))
@@ -266,7 +266,7 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
 
         fid_score = fid.frechet_inception_distance(mu1, sigma1, mu2, sigma2)
         if local_rank == 0:
-            metric_dict.update({"FID": fid_score})
+            metric_dict.update({"FID": fid_score.tolist()})
             if args.dset1_moments is None:
                 print("FID between dset1 and dset2 (dset1: {num1} images, dset2: {num2} images): {fid}".\
                       format(num1=str(len(dset1)), num2=str(len(dset2)), fid=fid_score))
@@ -361,7 +361,7 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
             print("Coverage between {dset1_mode} (ref) and dset2 (target) ({dset1_mode}: {num1} images, dset2: {num2} images): {cvg}".\
                 format(dset1_mode=str(dset1_mode), num1=str(len(dset1_feats_np)), num2=str(len(dset2_feats_np)), cvg=cvg))
     
-    with open(f"./results/{args.dset1.split('/')[-2]}_{args.dset2.split('/')[-2]}.json", "w") as f:
+    with open(f"./sample_fd_results/{args.dset1.split('/')[-2]}--{args.dset2.split('/')[-2]}.json", "w") as f:
         json.dump(metric_dict, f)
 
 if __name__ == "__main__":
