@@ -51,12 +51,15 @@ class CenterCropLongEdge(object):
 
 
 class Dataset_(Dataset):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, pre_resize, crop_long_edge=False):
         super(Dataset_, self).__init__()
         self.data_dir = data_dir
         self.trsf_list = [transforms.PILToTensor()]
+        if pre_resize != -1:
+            self.trsf_list.insert(0, transforms.Resize(pre_resize, resizer_collection["lanczos"]))
+        if crop_long_edge:
+            self.trsf_list.insert(0, CenterCropLongEdge())
         self.trsf = transforms.Compose(self.trsf_list)
-
         self.load_dataset()
 
     def load_dataset(self):
@@ -75,8 +78,11 @@ def prepare_evaluation():
     parser = ArgumentParser(add_help=True)
     parser.add_argument("-metrics", "--eval_metrics", nargs='+', default=['fid'],
                         help="evaluation metrics to use during training, a subset list of ['fid', 'is', 'prdc'] or none")
+    parser.add_argument("--pre_resize", type=int, default=-1)
     parser.add_argument("--post_resizer", type=str, default="legacy", help="which resizer will you use to evaluate GANs\
                         in ['legacy', 'clean', 'friendly']")
+    parser.add_argument("--crop_long_edge", type=str, default="none", help="whether to crop the long edge of the image\
+                        in ['dset1', 'dset2', 'both', 'none]")
     parser.add_argument('--eval_backbone', type=str, default='InceptionV3_tf',\
                         help="[InceptionV3_tf, InceptionV3_torch, ResNet50_torch, SwAV_torch, DINO_torch, Swin-T_torch]")
     parser.add_argument("--dset1", type=str, default=None, help="specify the directory of the folder that contains dset1 images (real).")
@@ -134,11 +140,13 @@ def evaluate(local_rank, args, world_size, gpus_per_node):
     load_dset1 = ("fid" in args.eval_metrics and args.dset1_moments == None) or \
         ("prdc" in args.eval_metrics and args.dset1_feats == None)
     if load_dset1:
-        dset1 = Dataset_(data_dir=args.dset1)
+        crop_long_edge = True if args.crop_long_edge in ["dset1", "both"] else False
+        dset1 = Dataset_(data_dir=args.dset1, pre_resize=args.pre_resize, crop_long_edge=crop_long_edge)
         if local_rank == 0:
             print("Size of dset1: {dataset_size}".format(dataset_size=len(dset1)))
-
-    dset2 = Dataset_(data_dir=args.dset2)
+    
+    crop_long_edge = True if args.crop_long_edge in ["dset2", "both"] else False
+    dset2 = Dataset_(data_dir=args.dset2, pre_resize=args.pre_resize, crop_long_edge=crop_long_edge)
     if local_rank == 0:
         print("Size of dset2: {dataset_size}".format(dataset_size=len(dset2)))
 
